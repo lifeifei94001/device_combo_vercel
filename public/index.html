@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3C Matrix - 3C数码信息排列组合工具箱</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: '#1890FF',
+            darkbg: '#121315',
+            darkcard: '#1E1F22',
+            darkborder: '#2E3138'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #F4F6F9;
+      color: #333333;
+    }
+    .dark body { background-color: #121315; color: #E0E0E0; }
+    .dark .bg-white { background-color: #1E1F22 !important; border-color: #2E3138 !important; color: #E0E0E0 !important; }
+    .dark .bg-gray-50 { background-color: #26282D !important; border-color: #33363C !important; color: #CCCCCC !important; }
+    .dark .border-gray-100, .dark .border-gray-200 { border-color: #2E3138 !important; }
+    .dark .text-gray-900, .dark .text-gray-800, .dark .text-gray-700 { color: #E5E7EB !important; }
+    .dark .text-gray-600, .dark .text-gray-500 { color: #9CA3AF !important; }
+    .dark input, .dark select { background-color: #26282D !important; color: #FFFFFF !important; border-color: #383C44 !important; }
+    .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); }
+    .pill-btn { transition: all 0.15s ease; }
+    .pill-btn:hover { background-color: #EBF5FF; color: #1E40AF; border-color: #93C5FD; }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden transition-colors duration-200">
+
+  <!-- ==================== 左侧侧边栏 ==================== -->
+  <aside class="w-64 bg-white border-r border-gray-200 flex flex-col justify-between select-none z-20 flex-shrink-0">
+    <div>
+      <div class="h-16 flex items-center px-5 border-b border-gray-100 space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-xl shadow-sm">🐱</div>
+        <div>
+          <div class="font-bold text-gray-800 text-base leading-tight tracking-tight">3C Matrix</div>
+          <div class="text-xs text-gray-400 font-normal">3C数码信息排列组合工具箱</div>
+        </div>
+      </div>
+
+      <div class="p-3 space-y-4 overflow-y-auto" style="max-height: calc(100vh - 190px);">
+        <!-- 首页 -->
+        <button id="nav-home" onclick="switchModule('home')" class="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+          <i class="fa-solid fa-house w-5 text-gray-400 mr-2"></i><span>首页概览</span>
+        </button>
+
+        <div>
+          <div class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">组合工具</div>
+          <div class="space-y-1">
+            <!-- 变更1: 手机&平板组合 -->
+            <button id="nav-android" onclick="switchModule('android')" class="w-full flex items-center px-3 py-2 text-sm font-semibold rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shadow-sm transition">
+              <i class="fa-solid fa-mobile-screen w-5 text-blue-600 mr-2"></i><span>手机&平板组合</span>
+            </button>
+            <button id="nav-laptop" onclick="switchModule('laptop')" class="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+              <i class="fa-solid fa-laptop w-5 text-gray-400 mr-2"></i><span>笔记本组合</span>
+            </button>
+            <button id="nav-watch" onclick="switchModule('watch')" class="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+              <i class="fa-solid fa-clock w-5 text-gray-400 mr-2"></i><span>智能手表组合</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">系统工具</div>
+          <div class="space-y-1">
+            <a href="javascript:void(0)" onclick="triggerUpload()" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+              <i class="fa-solid fa-cloud-arrow-up w-5 text-gray-400 mr-2"></i><span>数据导入导出</span>
+            </a>
+            <!-- 变更4: 点击打开全部模版中心 -->
+            <a href="javascript:void(0)" onclick="openTemplateCenterModal()" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+              <i class="fa-solid fa-file-excel w-5 text-gray-400 mr-2"></i><span>组合模板管理</span>
+            </a>
+            <!-- 变更5: 点击打开全维度字段字典配置 -->
+            <a href="javascript:void(0)" onclick="openDictConfigModal()" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
+              <i class="fa-solid fa-cubes w-5 text-gray-400 mr-2"></i><span>字段字典配置</span>
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">历史记录</div>
+          <div class="space-y-1">
+            <a href="javascript:void(0)" onclick="alert('已启用本地自动记忆机制，数据已实时保存在 app_memory！')" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition">
+              <i class="fa-solid fa-clock-rotate-left w-5 text-gray-400 mr-2"></i><span>组合记录</span>
+            </a>
+            <a href="javascript:void(0)" onclick="alert('系统运行正常，操作日志已自动记录。')" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition">
+              <i class="fa-solid fa-list-check w-5 text-gray-400 mr-2"></i><span>操作日志</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边栏底部 -->
+    <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <div class="flex items-center space-x-2">
+          <span class="text-base">🐱</span>
+          <span class="text-xs font-medium text-gray-600">深色模式</span>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="theme-toggle" onchange="toggleDarkMode(this.checked)" class="sr-only peer">
+          <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+
+      <div id="live-clock" class="text-[11px] font-mono text-blue-600 text-center py-1 bg-blue-50/50 rounded mb-2 font-medium">
+        🕒 正在获取时间...
+      </div>
+
+      <div class="text-[11px] text-gray-400 text-center leading-relaxed">
+        <div>© 2025 3C Matrix</div>
+        <div class="text-gray-500 font-medium">作者: 金玉，婷婷，崇朗</div>
+        <div class="text-gray-300 text-[10px]">v1.0.0</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== 右侧主区域 ==================== -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <header class="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between flex-shrink-0 z-10">
+      <div class="flex items-center space-x-3 text-sm">
+        <button class="text-gray-500 hover:text-blue-600"><i class="fa-solid fa-bars-staggered"></i></button>
+        <div class="flex items-center space-x-2 text-gray-500">
+          <span>首页</span>
+          <span class="text-gray-300">/</span>
+          <span>组合工具</span>
+          <span class="text-gray-300">/</span>
+          <span id="breadcrumb-current" class="text-blue-600 font-semibold">手机&平板组合</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <button onclick="openTemplateCenterModal()" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-md border border-gray-200 transition">
+          <i class="fa-solid fa-file-arrow-down mr-1.5 text-blue-500"></i>导入模板
+        </button>
+        <button onclick="saveCurrentRecords(true)" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-md border border-gray-200 transition">
+          <i class="fa-solid fa-floppy-disk mr-1.5 text-indigo-500"></i>保存记录
+        </button>
+        <button onclick="clearFormInputs()" class="flex items-center text-xs font-medium text-gray-600 hover:text-red-600 bg-gray-50 hover:bg-red-50 px-3 py-1.5 rounded-md border border-gray-200 transition">
+          <i class="fa-solid fa-eraser mr-1.5 text-gray-400"></i>清空条件
+        </button>
+
+        <div class="h-4 w-[1px] bg-gray-200 mx-1"></div>
+
+        <button onclick="toggleFullScreen()" class="text-gray-400 hover:text-gray-600 p-1" title="全屏放大/退出全屏">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+
+        <div class="relative">
+          <button onclick="showNotificationModal()" class="text-gray-400 hover:text-gray-600 p-1" title="系统消息">
+            <i class="fa-solid fa-bell"></i>
+          </button>
+          <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">3</span>
+        </div>
+
+        <div class="relative" id="user-menu-wrapper">
+          <button onclick="toggleUserDropdown()" class="flex items-center space-x-2 pl-2 focus:outline-none cursor-pointer">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600 border border-blue-200 shadow-sm">👨‍💼</div>
+            <span class="text-sm font-medium text-gray-700">管理员</span>
+            <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+          </button>
+          <div id="user-dropdown" class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 hidden z-50">
+            <a href="javascript:void(0)" onclick="alert('用户权限: 超级管理员\n状态: 正常在线')" class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"><i class="fa-solid fa-user-shield mr-2 text-blue-500"></i>账号信息</a>
+            <a href="javascript:void(0)" onclick="alert('当前版本: V3.2 旗舰版\n已全面优化选择替换、模版中心与全维度字典')" class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"><i class="fa-solid fa-code-branch mr-2 text-green-500"></i>系统版本</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6 space-y-5">
+      <!-- 首页概览视图 -->
+      <div id="view-home" class="space-y-6 hidden">
+        <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 text-white shadow-md">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight">3C Matrix 欢迎回来！</h1>
+              <p class="text-sm text-blue-100 mt-1">高性能 3C 数码机型参数多维笛卡尔积排列组合系统 · 已全面接入手机&平板、笔记本、手表自学习字典库</p>
+            </div>
+            <div class="text-4xl opacity-80">⚡</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-5">
+          <div onclick="switchModule('android')" class="bg-white p-5 rounded-xl border border-gray-100 card-shadow hover:shadow-md cursor-pointer transition">
+            <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-lg mb-3">📱</div>
+            <div class="text-xs text-gray-400">模块一</div>
+            <div class="text-base font-bold text-gray-800 mt-0.5">手机&平板组合</div>
+            <div class="text-xs text-gray-500 mt-1">渠道/制式智能检索 · 1TB单位优化 · 颜色字典</div>
+          </div>
+
+          <div onclick="switchModule('laptop')" class="bg-white p-5 rounded-xl border border-gray-100 card-shadow hover:shadow-md cursor-pointer transition">
+            <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg mb-3">💻</div>
+            <div class="text-xs text-gray-400">模块二</div>
+            <div class="text-base font-bold text-gray-800 mt-0.5">笔记本组合</div>
+            <div class="text-xs text-gray-500 mt-1">固态/机械/显卡/CPU 四维顿号拆分 · 固态字典修复</div>
+          </div>
+
+          <div onclick="switchModule('watch')" class="bg-white p-5 rounded-xl border border-gray-100 card-shadow hover:shadow-md cursor-pointer transition">
+            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 text-lg mb-3">⌚</div>
+            <div class="text-xs text-gray-400">模块三</div>
+            <div class="text-base font-bold text-gray-800 mt-0.5">智能手表组合</div>
+            <div class="text-xs text-gray-500 mt-1">材质/尺寸/表带/连接/颜色 六维笛卡尔积</div>
+          </div>
+
+          <div onclick="openDictConfigModal()" class="bg-white p-5 rounded-xl border border-gray-100 card-shadow hover:shadow-md cursor-pointer transition">
+            <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-lg mb-3">📚</div>
+            <div class="text-xs text-gray-400">核心字典</div>
+            <div class="text-base font-bold text-gray-800 mt-0.5">全维度字典配置</div>
+            <div class="text-xs text-gray-500 mt-1">4 大 Sheet 完整展现，支持一键查看与自动自学习</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 组合工具视图 (手机&平板 / 笔记本 / 手表) -->
+      <div id="view-combination" class="space-y-5">
+        <div>
+          <h1 id="page-title" class="text-xl font-bold text-gray-900 tracking-tight">手机&平板机型基本信息排列组合</h1>
+          <p id="page-subtitle" class="text-xs text-gray-500 mt-1">组合不同的参数，生成手机与平板机型信息排列列表 (已支持渠道/制式检索 · 1TB内存优化 · 颜色字典)</p>
+        </div>
+
+        <div class="grid grid-cols-12 gap-5">
+          <!-- 表单卡片 75% -->
+          <div class="col-span-9 bg-white rounded-xl p-5 border border-gray-100 card-shadow">
+            <div class="flex items-center space-x-2 mb-4 pb-2 border-b border-gray-100">
+              <span class="text-blue-600 font-bold"><i class="fa-solid fa-filter"></i></span>
+              <span class="font-bold text-gray-800 text-sm">组合条件筛选</span>
+            </div>
+
+            <!-- 1. 手机&平板表单 -->
+            <div id="form-android" class="space-y-3.5">
+              <div class="grid grid-cols-12 gap-3">
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌名称</label>
+                  <div class="relative">
+                    <input type="text" id="a-brand-name" placeholder="选择/搜索品牌" list="brand-datalist" oninput="onBrandInput(this.value)" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('brand', 'a-brand-name')" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 text-xs">🔍</button>
+                  </div>
+                  <datalist id="brand-datalist"></datalist>
+                </div>
+
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌编号/ID</label>
+                  <input type="text" id="a-brand-id" placeholder="如: 101" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">机型编号</label>
+                  <input type="text" id="a-model-id" placeholder="如: 20101" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">上市时间</label>
+                  <input type="text" id="a-release-time" placeholder="2025/10/26" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">小型号</label>
+                  <input type="text" id="a-small-model" placeholder="如: 23117RK66C" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
+                  <div class="flex space-x-1">
+                    <input type="text" id="a-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="a-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="a-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 内存、渠道、网络 -->
+              <div class="grid grid-cols-12 gap-3 items-center">
+                <div class="col-span-3">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">内存配置 (空格分隔 / 1TB单位)</label>
+                  <input type="text" id="a-memory" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-3">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">购买渠道 (可检索/默认国行)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="a-channel" value="国行 其他版本" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('channel', 'a-channel')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索购买渠道">🔍</button>
+                  </div>
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">网络制式 (可检索/默认全网通)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="a-network" value="全网通" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('network', 'a-network')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索网络制式">🔍</button>
+                  </div>
+                </div>
+                <div class="col-span-4">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">快速内存方案 (单位TB)</label>
+                  <div class="flex flex-wrap gap-1">
+                    <button onclick="appendAndroidMem('8G+128G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">8G+128G</button>
+                    <button onclick="appendAndroidMem('8G+256G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">8G+256G</button>
+                    <button onclick="appendAndroidMem('12G+256G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">12G+256G</button>
+                    <button onclick="appendAndroidMem('12G+512G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">12G+512G</button>
+                    <button onclick="appendAndroidMem('16G+512G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">16G+512G</button>
+                    <button onclick="appendAndroidMem('16G+1TB')" class="pill-btn px-1.5 py-0.5 text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded">16G+1TB</button>
+                    <button onclick="openSearchModal('memory', 'a-memory')" class="pill-btn px-1.5 py-0.5 text-[11px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 rounded">... 更多内存</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 手机颜色 -->
+              <div class="grid grid-cols-12 gap-3 items-center">
+                <div class="col-span-6">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">机型颜色 (顿号/空格分隔 / 字典模糊查询)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="a-color" placeholder="输入或点击右侧 🎨 模糊检索颜色" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('color', 'a-color')" class="absolute right-2 text-sm hover:scale-110 transition" title="打开颜色字典检索">🎨</button>
+                  </div>
+                </div>
+                <div class="col-span-6 flex items-end space-x-2 pt-5">
+                  <button onclick="appendAndroidColor('黑色')" class="pill-btn px-2 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded">黑色</button>
+                  <button onclick="appendAndroidColor('白色')" class="pill-btn px-2 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded">白色</button>
+                  <button onclick="appendAndroidColor('金色')" class="pill-btn px-2 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded">金色</button>
+                  <button onclick="appendAndroidColor('银色')" class="pill-btn px-2 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded">银色</button>
+                  <button onclick="appendAndroidColor('钛金属灰')" class="pill-btn px-2 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded">钛金属灰</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. 笔记本表单 -->
+            <div id="form-laptop" class="space-y-3.5 hidden">
+              <div class="grid grid-cols-6 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌名称</label>
+                  <input type="text" id="l-brand-name" placeholder="选择/搜索品牌" list="brand-datalist" oninput="onBrandInput(this.value, 'laptop')" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌ID</label>
+                  <input type="text" id="l-brand-id" placeholder="如: 201" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">别名</label>
+                  <input type="text" id="l-alias" placeholder="拯救者Y9000P" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">型号ID</label>
+                  <input type="text" id="l-model-id" placeholder="30201" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">发布时间</label>
+                  <input type="text" id="l-release-time" placeholder="2025/01/18" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
+                  <div class="flex space-x-1">
+                    <input type="text" id="l-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="l-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="l-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 固态与机械 -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">固态硬盘 (顿号分隔 / 💾 字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="l-ssd" placeholder="如: 512G、1TB、2TB 或点击 🔍 检索" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('ssd', 'l-ssd')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索固态硬盘">🔍</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">机械硬盘 (顿号分隔 / 💿 字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="l-hdd" placeholder="如: 无 或 1TB、2TB 或点击 🔍 检索" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('hdd', 'l-hdd')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索机械硬盘">🔍</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 显卡与CPU -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">显卡型号 (顿号分隔 / 字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="l-gpu" placeholder="RTX4060、RTX4070" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('gpu', 'l-gpu')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">处理器 CPU (顿号分隔 / 字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="l-cpu" placeholder="i9-14900HX、i7-14650HX" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('cpu', 'l-cpu')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. 智能手表表单 -->
+            <div id="form-watch" class="space-y-3.5 hidden">
+              <div class="grid grid-cols-12 gap-3">
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌名称</label>
+                  <input type="text" id="w-brand-name" placeholder="选择/搜索品牌" list="brand-datalist" oninput="onBrandInput(this.value, 'watch')" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">品牌ID</label>
+                  <input type="text" id="w-brand-id" placeholder="如: 5" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">机型编号(型号)</label>
+                  <input type="text" id="w-model-num" placeholder="如: 18709" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">型号(名称)</label>
+                  <input type="text" id="w-model-name" placeholder="红米 Watch 6 活力版" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">发布时间</label>
+                  <input type="text" id="w-release-time" placeholder="2026/08/20" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
+                  <div class="flex space-x-1">
+                    <input type="text" id="w-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="w-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="w-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 渠道、颜色、材质、尺寸 -->
+              <div class="grid grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">购买渠道 (空格分隔)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-channel" value="国行 其他版本" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('channel', 'w-channel')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">机型颜色 (空格/顿号)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-color" placeholder="锖色 银色 粉橙色" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('color', 'w-color')" class="absolute right-2 text-sm">🎨</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">表壳材质 (带字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-material" placeholder="纤维高强度聚合物" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('watch_material', 'w-material')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">表壳尺寸 (带字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-size" placeholder="1.85寸" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('watch_size', 'w-size')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 表带与连接 -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">表带 (空格/顿号分隔 / 字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-strap" value="TPU表带 无表带" placeholder="TPU表带 无表带" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('watch_strap', 'w-strap')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">连接方式 (带字典检索)</label>
+                  <div class="relative flex items-center">
+                    <input type="text" id="w-connection" value="GPS" placeholder="GPS" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <button onclick="openSearchModal('watch_conn', 'w-connection')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 卡片底部按钮 -->
+            <div class="flex items-center space-x-3 mt-4 pt-3 border-t border-gray-100">
+              <button onclick="handleAddRecord()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition">
+                <i class="fa-solid fa-bolt mr-1.5"></i>生成组合列表
+              </button>
+              <button onclick="clearFormInputs()" class="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium border border-gray-200 rounded-lg transition flex items-center">
+                <i class="fa-solid fa-rotate-left mr-1.5 text-gray-400"></i>清空条件
+              </button>
+              <button onclick="saveCurrentRecords(true)" class="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium border border-gray-200 rounded-lg transition flex items-center">
+                <i class="fa-solid fa-bookmark mr-1.5 text-gray-400"></i>保存筛选
+              </button>
+            </div>
+          </div>
+
+          <!-- 批量处理卡片 25% -->
+          <div class="col-span-3 bg-white rounded-xl p-5 border border-gray-100 card-shadow flex flex-col justify-between">
+            <div>
+              <div class="font-bold text-gray-800 text-sm mb-4">批量处理与导出</div>
+              <div class="space-y-2.5">
+                <button onclick="openTemplateCenterModal()" class="w-full py-2.5 px-3 bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
+                  <i class="fa-solid fa-file-excel mr-2"></i>导出 Excel 模版
+                </button>
+
+                <label class="w-full py-2.5 px-3 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center cursor-pointer transition">
+                  <i class="fa-solid fa-cloud-arrow-up mr-2"></i>导入已有组合
+                  <input type="file" id="file-upload" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(event)">
+                </label>
+
+                <button onclick="generateAndExport()" class="w-full py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
+                  <i class="fa-solid fa-share-nodes mr-2"></i>排列组合并导出
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 mt-4">
+              <button onclick="clearAllRecords()" class="w-full py-2 px-3 bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-600 text-xs font-medium rounded-lg border border-gray-200 transition flex items-center justify-center">
+                <i class="fa-solid fa-trash-can mr-1.5"></i>清空列表
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 待处理列表表格卡片 -->
+        <div class="bg-white rounded-xl border border-gray-100 card-shadow overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-blue-600"><i class="fa-solid fa-table-list"></i></span>
+              <span id="table-title-count" class="font-bold text-gray-800 text-sm">待处理机型列表 (0 条记录)</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="deleteSelectedRows()" class="px-2.5 py-1.5 text-xs text-red-600 bg-red-50/50 border border-red-200 rounded-md hover:bg-red-50 transition flex items-center font-medium">
+                <i class="fa-solid fa-trash mr-1"></i>删除选中
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-gray-600">
+              <thead class="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100 select-none">
+                <tr id="table-headers"></tr>
+              </thead>
+              <tbody id="table-body" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+
+          <div class="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+            <div id="footer-count">共 0 条</div>
+            <div class="flex items-center space-x-3">
+              <select class="bg-gray-50 border border-gray-200 rounded px-2 py-1 text-xs"><option>20 条/页</option></select>
+              <button class="w-6 h-6 rounded bg-blue-600 text-white font-bold flex items-center justify-center text-xs">1</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== 1. 极速模糊检索弹窗 (0延迟流畅替换) ==================== -->
+  <div id="search-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <h3 id="modal-title" class="font-bold text-gray-800 text-sm">🔍 字典模糊检索</h3>
+        <button onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <div class="relative">
+          <input type="text" id="modal-search-input" placeholder="输入关键词实时过滤..." oninput="onSearchInputDebounce(this.value)" class="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"><i class="fa-solid fa-magnifying-glass"></i></span>
+        </div>
+        <div id="modal-items-container" class="max-h-72 overflow-y-auto space-y-1 p-1 bg-gray-50/50 rounded-lg border border-gray-100"></div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <span id="modal-selected-badge" class="text-xs text-gray-500 font-medium">已选: 0 项 (确定后将直接替换原有内容)</span>
+        <div class="flex space-x-2">
+          <button onclick="closeSearchModal()" class="px-3.5 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">取消</button>
+          <button onclick="confirmModalSelection()" class="px-4 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 font-bold rounded-lg shadow-sm">✔️ 确认填入 (替换)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 全部模版中心弹窗 (手机/笔记本/手表) ==================== -->
+  <div id="template-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-gray-100">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div class="flex items-center space-x-2">
+          <span class="text-emerald-600 font-bold text-lg"><i class="fa-solid fa-file-excel"></i></span>
+          <h3 class="font-bold text-gray-800 text-sm">3C 组合标准模版下载中心 (首行均含真实示例)</h3>
+        </div>
+        <button onclick="closeTemplateCenterModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- 手机&平板模版 -->
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-200 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-xl">📱</div>
+            <div>
+              <div class="font-bold text-sm text-gray-800">手机&平板机型组合模版</div>
+              <div class="text-xs text-gray-400 mt-0.5">表头含：品牌、型号、内存(TB单位)、渠道、制式、颜色、开关机底价等</div>
+            </div>
+          </div>
+          <button onclick="downloadSpecificTemplate('android')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center">
+            <i class="fa-solid fa-download mr-1.5"></i>下载 .xlsx
+          </button>
+        </div>
+
+        <!-- 笔记本模版 -->
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-emerald-200 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-xl">💻</div>
+            <div>
+              <div class="font-bold text-sm text-gray-800">笔记本机型组合模版</div>
+              <div class="text-xs text-gray-400 mt-0.5">表头含：品牌ID、型号、别名、固态、机械、显卡、处理器、价格等</div>
+            </div>
+          </div>
+          <button onclick="downloadSpecificTemplate('laptop')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center">
+            <i class="fa-solid fa-download mr-1.5"></i>下载 .xlsx
+          </button>
+        </div>
+
+        <!-- 智能手表模版 -->
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-amber-200 transition">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 text-xl">⌚</div>
+            <div>
+              <div class="font-bold text-sm text-gray-800">智能手表组合模版</div>
+              <div class="text-xs text-gray-400 mt-0.5">表头含：机型编号、品牌、型号、渠道、颜色、材质、尺寸、表带、连接等</div>
+            </div>
+          </div>
+          <button onclick="downloadSpecificTemplate('watch')" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center">
+            <i class="fa-solid fa-download mr-1.5"></i>下载 .xlsx
+          </button>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+        <button onclick="closeTemplateCenterModal()" class="px-4 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 3. 全维度字典字段配置工作台 Modal ==================== -->
+  <div id="dict-config-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 flex flex-col" style="max-height: 85vh;">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div class="flex items-center space-x-2">
+          <span class="text-purple-600 font-bold text-lg"><i class="fa-solid fa-cubes"></i></span>
+          <h3 class="font-bold text-gray-800 text-sm">3C 机型全维度字典配置大盘 (4大Sheet全量展现)</h3>
+        </div>
+        <button onclick="closeDictConfigModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
+      </div>
+
+      <!-- Tab 切换 -->
+      <div class="flex border-b border-gray-200 px-5 pt-3 space-x-4 bg-gray-50/40 text-xs font-semibold select-none">
+        <button id="dict-tab-mobile" onclick="switchDictTab('mobile')" class="pb-2.5 border-b-2 border-blue-600 text-blue-600 flex items-center"><i class="fa-solid fa-mobile mr-1.5"></i>手机&平板 Sheet</button>
+        <button id="dict-tab-laptop" onclick="switchDictTab('laptop')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-laptop mr-1.5"></i>笔记本 Sheet</button>
+        <button id="dict-tab-watch" onclick="switchDictTab('watch')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-clock mr-1.5"></i>手表 Sheet</button>
+        <button id="dict-tab-brand" onclick="switchDictTab('brand')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-tags mr-1.5"></i>品牌 ID Sheet</button>
+      </div>
+
+      <!-- 字典内容展示容器 -->
+      <div class="p-5 overflow-y-auto flex-1 space-y-4" id="dict-tab-content">
+        <!-- 动态渲染 -->
+      </div>
+
+      <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <span class="text-xs text-gray-400">✨ 提示：手动在界面输入的新参数在处理时会自动持久化回写至《3C机型字典库.xlsx》</span>
+        <button onclick="closeDictConfigModal()" class="px-4 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentModule = 'android';
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    let dictData = { brands: [], mobile_colors: [], mobile_networks: [], mobile_channels: [], mobile_rams: [], mobile_roms: [], laptop_ssds: [], laptop_hdds: [], laptop_cpus: [], laptop_gpus: [], watch_materials: [], watch_sizes: [], watch_connections: [], watch_straps: [], watch_networks: [] };
+    let currentRecords = [];
+    let modalCurrentType = '';
+    let modalTargetInputId = '';
+    let modalSelectedItems = new Set();
+    let modalAllItems = [];
+    let searchDebounceTimer = null;
+
+    window.onload = async () => {
+      startLiveClock();
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+      document.getElementById('a-release-time').value = today;
+      document.getElementById('l-release-time').value = today;
+      document.getElementById('w-release-time').value = today;
+      await loadDictData();
+      await loadModuleRecords();
+    };
+
+    function startLiveClock() {
+      const updateTime = () => {
+        const now = new Date();
+        const str = `🕒 ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const el = document.getElementById('live-clock');
+        if (el) el.innerText = str;
+      };
+      updateTime();
+      setInterval(updateTime, 1000);
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => console.log(e));
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    function showNotificationModal() {
+      alert('🔔 系统消息中心：\n\n1. 【手机&平板组合】模块名称已对齐规范。\n2. 弹窗选择逻辑已优化：确定后【直接替换】原有内容，清爽干净。\n3. 组合模版中心已上线：支持手机、笔记本、手表 3 大标准模版下载。\n4. 全维度字典大盘已上线：4 大 Sheet 完整透明展现。\n5. 内存单位全面规范化为 TB (如 16G+1TB)。');
+    }
+
+    function toggleUserDropdown() {
+      document.getElementById('user-dropdown').classList.toggle('hidden');
+    }
+
+    function toggleDarkMode(isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    }
+
+    async function loadDictData() {
+      try {
+        const res = await fetch('/api/dict/data');
+        dictData = await res.json();
+        const dl = document.getElementById('brand-datalist');
+        dl.innerHTML = '';
+        dictData.brands.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.name;
+          opt.innerText = `ID: ${b.id}`;
+          dl.appendChild(opt);
+        });
+      } catch (e) { console.error('加载字典异常', e); }
+    }
+
+    function onBrandInput(val, mod = 'android') {
+      const match = dictData.brands.find(b => b.name.toLowerCase() === val.trim().toLowerCase());
+      if (match) {
+        if (mod === 'android') document.getElementById('a-brand-id').value = match.id;
+        else if (mod === 'laptop') document.getElementById('l-brand-id').value = match.id;
+        else if (mod === 'watch') document.getElementById('w-brand-id').value = match.id;
+      }
+    }
+
+    function switchModule(mod) {
+      currentModule = mod;
+      ['home', 'android', 'laptop', 'watch'].forEach(m => {
+        const btn = document.getElementById(`nav-${m}`);
+        if (btn) {
+          if (m === mod) {
+            btn.className = "w-full flex items-center px-3 py-2 text-sm font-semibold rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shadow-sm transition";
+          } else {
+            btn.className = "w-full flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition";
+          }
+        }
+      });
+
+      const homeView = document.getElementById('view-home');
+      const comboView = document.getElementById('view-combination');
+
+      if (mod === 'home') {
+        document.getElementById('breadcrumb-current').innerText = '首页概览';
+        homeView.classList.remove('hidden');
+        comboView.classList.add('hidden');
+        return;
+      }
+
+      homeView.classList.add('hidden');
+      comboView.classList.remove('hidden');
+
+      const fA = document.getElementById('form-android');
+      const fL = document.getElementById('form-laptop');
+      const fW = document.getElementById('form-watch');
+      fA.classList.add('hidden');
+      fL.classList.add('hidden');
+      fW.classList.add('hidden');
+
+      if (mod === 'android') {
+        document.getElementById('breadcrumb-current').innerText = '手机&平板组合';
+        document.getElementById('page-title').innerText = '手机&平板机型基本信息排列组合';
+        document.getElementById('page-subtitle').innerText = '组合不同的参数，生成手机与平板机型信息排列列表 (支持渠道/制式检索 · 1TB内存优化 · 颜色字典)';
+        fA.classList.remove('hidden');
+      } else if (mod === 'laptop') {
+        document.getElementById('breadcrumb-current').innerText = '笔记本组合';
+        document.getElementById('page-title').innerText = '笔记本机型基本信息排列组合';
+        document.getElementById('page-subtitle').innerText = '固态/机械/显卡/CPU 四维顿号拆分组合 (已去除运行内存 · 固态字典精准修复)';
+        fL.classList.remove('hidden');
+      } else if (mod === 'watch') {
+        document.getElementById('breadcrumb-current').innerText = '智能手表组合';
+        document.getElementById('page-title').innerText = '智能手表机型基本信息排列组合';
+        document.getElementById('page-subtitle').innerText = '表壳材质/尺寸/表带/连接/颜色/渠道 六维笛卡尔积组合 · 国行智能排序';
+        fW.classList.remove('hidden');
+      }
+      loadModuleRecords();
+    }
+
+    async function loadModuleRecords() {
+      try {
+        const localData = localStorage.getItem('3c_records_' + currentModule);
+        if (localData) {
+          currentRecords = JSON.parse(localData);
+        } else {
+          currentRecords = [];
+        }
+        renderTable();
+      } catch (e) { console.error('加载记录异常', e); }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const thead = document.getElementById('table-headers');
+      document.getElementById('table-title-count').innerText = `待处理机型列表 (${currentRecords.length} 条记录)`;
+      document.getElementById('footer-count').innerText = `共 ${currentRecords.length} 条`;
+
+      if (currentModule === 'android') {
+        thead.innerHTML = `
+          <th class="p-3 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+          <th class="p-3">序号</th><th class="p-3">品牌编号</th><th class="p-3">品牌名称</th><th class="p-3">机型编号</th>
+          <th class="p-3">内存</th><th class="p-3">购买渠道</th><th class="p-3">网络制式</th><th class="p-3">颜色</th>
+          <th class="p-3">小型号</th><th class="p-3">上市时间</th><th class="p-3">开/关/底价</th><th class="p-3 text-center">操作</th>
+        `;
+      } else if (currentModule === 'laptop') {
+        thead.innerHTML = `
+          <th class="p-3 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+          <th class="p-3">序号</th><th class="p-3">品牌ID</th><th class="p-3">品牌名称</th><th class="p-3">别名</th><th class="p-3">型号ID</th>
+          <th class="p-3">固态硬盘</th><th class="p-3">机械硬盘</th><th class="p-3">显卡</th><th class="p-3">处理器</th>
+          <th class="p-3">开/关/底价</th><th class="p-3">发布时间</th><th class="p-3 text-center">操作</th>
+        `;
+      } else if (currentModule === 'watch') {
+        thead.innerHTML = `
+          <th class="p-3 w-10 text-center"><input type="checkbox" id="check-all" onclick="toggleSelectAll(this)"></th>
+          <th class="p-3">序号</th><th class="p-3">机型编号</th><th class="p-3">品牌ID</th><th class="p-3">品牌名称</th><th class="p-3">型号(名称)</th>
+          <th class="p-3">购买渠道</th><th class="p-3">手机颜色</th><th class="p-3">表壳材质</th><th class="p-3">表壳尺寸</th><th class="p-3">表带</th><th class="p-3">连接</th><th class="p-3">价格(开/关/底)</th><th class="p-3 text-center">操作</th>
+        `;
+      }
+
+      if (!currentRecords.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="14" class="py-16 text-center">
+              <div class="flex flex-col items-center justify-center space-y-3">
+                <div class="w-16 h-16 bg-blue-50/60 rounded-full flex items-center justify-center text-3xl">📦</div>
+                <div class="text-sm font-bold text-gray-700">暂无数据</div>
+                <div class="text-xs text-gray-400">请设置组合条件并生成列表</div>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      currentRecords.forEach((rec, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-blue-50/40 transition";
+        const prices = `${rec['开机价'] || '-'}/${rec['关机价'] || '-'}/${rec['开机最低价'] || '-'}`;
+
+        if (currentModule === 'android') {
+          tr.innerHTML = `
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['品牌编号'] || '-')}</td>
+            <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['机型编号'] || '-')}</td>
+            <td class="p-3 text-blue-600 font-medium">${escapeHtml(rec['内存'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['购买渠道'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['网络制式'] || '-')}</td>
+            <td class="p-3 text-purple-600">${escapeHtml(rec['颜色'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['小型号'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['上市时间'] || '-')}</td>
+            <td class="p-3 text-emerald-600 font-mono">${prices}</td>
+            <td class="p-3 text-center"><button onclick="deleteSingleRow(${idx})" class="text-red-500 hover:text-red-700 font-medium">删除</button></td>
+          `;
+        } else if (currentModule === 'laptop') {
+          tr.innerHTML = `
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['品牌ID'] || '-')}</td>
+            <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['别名'] || '-')}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['型号'] || '-')}</td>
+            <td class="p-3 text-blue-600">${escapeHtml(rec['固态硬盘'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['机械硬盘'] || '-')}</td>
+            <td class="p-3 text-indigo-600">${escapeHtml(rec['显卡型号'] || '-')}</td>
+            <td class="p-3 text-purple-600">${escapeHtml(rec['处理器'] || '-')}</td>
+            <td class="p-3 text-emerald-600 font-mono">${prices}</td>
+            <td class="p-3">${escapeHtml(rec['发布时间'] || '-')}</td>
+            <td class="p-3 text-center"><button onclick="deleteSingleRow(${idx})" class="text-red-500 hover:text-red-700 font-medium">删除</button></td>
+          `;
+        } else if (currentModule === 'watch') {
+          tr.innerHTML = `
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['机型编号'] || '-')}</td>
+            <td class="p-3 font-mono">${escapeHtml(rec['品牌ID'] || '-')}</td>
+            <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['型号'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['购买渠道'] || '-')}</td>
+            <td class="p-3 text-purple-600">${escapeHtml(rec['手机颜色'] || '-')}</td>
+            <td class="p-3 text-blue-600">${escapeHtml(rec['表壳材质'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['表壳尺寸'] || '-')}</td>
+            <td class="p-3">${escapeHtml(rec['表带'] || '-')}</td>
+            <td class="p-3 text-indigo-600">${escapeHtml(rec['连接'] || '-')}</td>
+            <td class="p-3 text-emerald-600 font-mono">${prices}</td>
+            <td class="p-3 text-center"><button onclick="deleteSingleRow(${idx})" class="text-red-500 hover:text-red-700 font-medium">删除</button></td>
+          `;
+        }
+        tbody.appendChild(tr);
+      });
+    }
+
+    function handleAddRecord() {
+      let rec = {};
+      if (currentModule === 'android') {
+        const bName = document.getElementById('a-brand-name').value.trim();
+        const bId = document.getElementById('a-brand-id').value.trim();
+        const mId = document.getElementById('a-model-id').value.trim();
+        if (!bName && !bId && !mId) { alert('请至少输入品牌或机型编号！'); return; }
+        rec = {
+          '品牌编号': bId, '品牌名称': bName, '机型编号': mId,
+          '内存': document.getElementById('a-memory').value.trim(),
+          '购买渠道': document.getElementById('a-channel').value.trim(),
+          '网络制式': document.getElementById('a-network').value.trim(),
+          '颜色': document.getElementById('a-color').value.trim(),
+          '小型号': document.getElementById('a-small-model').value.trim(),
+          '上市时间': document.getElementById('a-release-time').value.trim(),
+          '开机价': document.getElementById('a-on-price').value.trim(),
+          '关机价': document.getElementById('a-off-price').value.trim(),
+          '开机最低价': document.getElementById('a-min-price').value.trim()
+        };
+      } else if (currentModule === 'laptop') {
+        const bName = document.getElementById('l-brand-name').value.trim();
+        const bId = document.getElementById('l-brand-id').value.trim();
+        const mId = document.getElementById('l-model-id').value.trim();
+        if (!bName && !bId && !mId) { alert('请至少输入品牌或型号ID！'); return; }
+        rec = {
+          '品牌ID': bId, '品牌名称': bName, '别名': document.getElementById('l-alias').value.trim(),
+          '型号': mId,
+          '固态硬盘': document.getElementById('l-ssd').value.trim(),
+          '机械硬盘': document.getElementById('l-hdd').value.trim(),
+          '显卡型号': document.getElementById('l-gpu').value.trim(),
+          '处理器': document.getElementById('l-cpu').value.trim(),
+          '开机价': document.getElementById('l-on-price').value.trim(),
+          '关机价': document.getElementById('l-off-price').value.trim(),
+          '开机最低价': document.getElementById('l-min-price').value.trim(),
+          '发布时间': document.getElementById('l-release-time').value.trim()
+        };
+      } else if (currentModule === 'watch') {
+        const bName = document.getElementById('w-brand-name').value.trim();
+        const bId = document.getElementById('w-brand-id').value.trim();
+        const mNum = document.getElementById('w-model-num').value.trim();
+        if (!bName && !bId && !mNum) { alert('请至少输入品牌或机型编号！'); return; }
+        rec = {
+          '机型编号': mNum, '品牌ID': bId, '品牌名称': bName,
+          '型号': document.getElementById('w-model-name').value.trim(),
+          '购买渠道': document.getElementById('w-channel').value.trim(),
+          '手机颜色': document.getElementById('w-color').value.trim(),
+          '表壳材质': document.getElementById('w-material').value.trim(),
+          '表壳尺寸': document.getElementById('w-size').value.trim(),
+          '表带': document.getElementById('w-strap').value.trim(),
+          '连接': document.getElementById('w-connection').value.trim(),
+          '开机价': document.getElementById('w-on-price').value.trim(),
+          '关机价': document.getElementById('w-off-price').value.trim(),
+          '开机最低价': document.getElementById('w-min-price').value.trim(),
+          '发布时间': document.getElementById('w-release-time').value.trim()
+        };
+      }
+
+      currentRecords.push(rec);
+      renderTable();
+      saveCurrentRecords();
+    }
+
+    function appendAndroidMem(val) {
+      const el = document.getElementById('a-memory');
+      const cur = el.value.trim();
+      el.value = cur ? `${cur} ${val}` : val;
+    }
+    function appendAndroidColor(val) {
+      const el = document.getElementById('a-color');
+      const cur = el.value.trim();
+      el.value = cur ? `${cur}、${val}` : val;
+    }
+
+    async function saveCurrentRecords(notify = false) {
+      try {
+        localStorage.setItem('3c_records_' + currentModule, JSON.stringify(currentRecords));
+        if (notify) alert('💾 记录已成功保存至云端/本地浏览器记忆库！');
+      } catch (e) { console.error(e); }
+    }
+
+    function deleteSingleRow(idx) {
+      currentRecords.splice(idx, 1);
+      renderTable();
+      saveCurrentRecords();
+    }
+
+    function deleteSelectedRows() {
+      const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+      const indices = Array.from(checkboxes).map(c => parseInt(c.getAttribute('data-index'))).sort((a, b) => b - a);
+      if (!indices.length) { alert('请先勾选需要删除的行！'); return; }
+      indices.forEach(idx => currentRecords.splice(idx, 1));
+      renderTable();
+      saveCurrentRecords();
+    }
+
+    async function clearAllRecords() {
+      if (!currentRecords.length) return;
+      if (confirm('确定要全新清空当前模块的所有机型记录吗？（将同步清空本地记忆）')) {
+        currentRecords = [];
+        localStorage.removeItem('3c_records_' + currentModule);
+        renderTable();
+      }
+    }
+
+    function clearFormInputs() {
+      if (currentModule === 'android') {
+        document.getElementById('a-model-id').value = '';
+        document.getElementById('a-small-model').value = '';
+        document.getElementById('a-memory').value = '';
+        document.getElementById('a-color').value = '';
+        document.getElementById('a-on-price').value = '';
+        document.getElementById('a-off-price').value = '';
+        document.getElementById('a-min-price').value = '';
+      } else if (currentModule === 'laptop') {
+        document.getElementById('l-alias').value = '';
+        document.getElementById('l-model-id').value = '';
+        document.getElementById('l-ssd').value = '';
+        document.getElementById('l-hdd').value = '';
+        document.getElementById('l-gpu').value = '';
+        document.getElementById('l-cpu').value = '';
+        document.getElementById('l-on-price').value = '';
+        document.getElementById('l-off-price').value = '';
+        document.getElementById('l-min-price').value = '';
+      } else if (currentModule === 'watch') {
+        document.getElementById('w-model-num').value = '';
+        document.getElementById('w-model-name').value = '';
+        document.getElementById('w-color').value = '';
+        document.getElementById('w-material').value = '';
+        document.getElementById('w-size').value = '';
+        document.getElementById('w-on-price').value = '';
+        document.getElementById('w-off-price').value = '';
+        document.getElementById('w-min-price').value = '';
+      }
+    }
+
+    function toggleSelectAll(master) {
+      document.querySelectorAll('.row-checkbox').forEach(c => c.checked = master.checked);
+    }
+
+    // 模版中心逻辑 (修复第4项)
+    function openTemplateCenterModal() {
+      document.getElementById('template-modal').classList.remove('hidden');
+    }
+    function closeTemplateCenterModal() {
+      document.getElementById('template-modal').classList.add('hidden');
+    }
+    function downloadSpecificTemplate(mod) {
+      window.open(`/api/template/download?module=${mod}`, '_blank');
+    }
+    function downloadTemplate() {
+      downloadSpecificTemplate(currentModule);
+    }
+
+    function triggerUpload() {
+      document.getElementById('file-upload').click();
+    }
+
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Str = event.target.result;
+        try {
+          const res = await fetch('/api/upload_excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ module: currentModule, file_base64: base64Str })
+          });
+          const data = await res.json();
+          if (data.status === 'ok') {
+            currentRecords.push(...data.records);
+            renderTable();
+            saveCurrentRecords();
+            alert(`🎉 ${data.msg}`);
+          } else {
+            alert(`导入失败: ${data.msg}`);
+          }
+        } catch (err) {
+          alert(`上传解析异常: ${err}`);
+        }
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+
+    async function generateAndExport() {
+      if (!currentRecords.length) {
+        alert('待处理机型列表为空，请先录入或导入机型数据！');
+        return;
+      }
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ module: currentModule, records: currentRecords })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          alert(`🎉 排列组合处理完成！共生成 ${data.count} 行标准 26 列数据。\n即将自动下载 CSV 文件！`);
+          if (data.csv_base64) {
+            const byteCharacters = atob(data.csv_base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = data.filename || '导出结果.csv';
+            link.click();
+          }
+        } else {
+          alert(`生成失败: ${data.msg}`);
+        }
+      } catch (e) {
+        alert(`排列组合执行异常: ${e}`);
+      }
+    }
+
+    // 极速防抖搜索 (修复第2项)
+    function onSearchInputDebounce(val) {
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => filterModalItems(val), 35);
+    }
+
+    // 打开检索弹窗 (修复第3项: 传入目标输入框ID以便替换)
+    function openSearchModal(type, targetInputId = '') {
+      modalCurrentType = type;
+      modalTargetInputId = targetInputId;
+      modalSelectedItems.clear();
+      const modal = document.getElementById('search-modal');
+      const titleEl = document.getElementById('modal-title');
+      const inputEl = document.getElementById('modal-search-input');
+      inputEl.value = '';
+
+      if (type === 'brand') {
+        titleEl.innerText = '🔍 模糊检索品牌';
+        modalAllItems = dictData.brands.map(b => `${b.name} (${b.id})`);
+      } else if (type === 'color') {
+        titleEl.innerText = '🎨 模糊检索机型颜色';
+        modalAllItems = dictData.mobile_colors;
+      } else if (type === 'channel') {
+        titleEl.innerText = '🛒 模糊检索购买渠道';
+        modalAllItems = dictData.mobile_channels;
+      } else if (type === 'network') {
+        titleEl.innerText = '📶 模糊检索网络制式';
+        modalAllItems = dictData.mobile_networks;
+      } else if (type === 'memory') {
+        titleEl.innerText = '💾 检索更多手机/平板内存方案 (RAM+ROM，单位TB)';
+        const mems = [];
+        ['8G', '12G', '16G', '24G', '32G', '6G', '4G'].forEach(ram => {
+          ['128G', '256G', '512G', '1TB', '2TB', '4TB', '64G'].forEach(rom => {
+            mems.push(`${ram}+${rom}`);
+          });
+        });
+        modalAllItems = mems;
+      } else if (type === 'cpu') {
+        titleEl.innerText = '💻 模糊检索处理器 CPU';
+        modalAllItems = dictData.laptop_cpus;
+      } else if (type === 'gpu') {
+        titleEl.innerText = '🎮 模糊检索显卡 GPU';
+        modalAllItems = dictData.laptop_gpus;
+      } else if (type === 'ssd') {
+        titleEl.innerText = '💾 模糊检索固态硬盘字典';
+        modalAllItems = dictData.laptop_ssds;
+      } else if (type === 'hdd') {
+        titleEl.innerText = '💿 模糊检索机械硬盘字典';
+        modalAllItems = dictData.laptop_hdds;
+      } else if (type === 'watch_material') {
+        titleEl.innerText = '⌚ 模糊检索手表表壳材质';
+        modalAllItems = dictData.watch_materials;
+      } else if (type === 'watch_size') {
+        titleEl.innerText = '⌚ 模糊检索手表表壳尺寸';
+        modalAllItems = dictData.watch_sizes;
+      } else if (type === 'watch_strap') {
+        titleEl.innerText = '⌚ 模糊检索手表表带类型';
+        modalAllItems = dictData.watch_straps;
+      } else if (type === 'watch_conn') {
+        titleEl.innerText = '⌚ 模糊检索手表连接方式';
+        modalAllItems = dictData.watch_connections;
+      }
+
+      renderModalItems(modalAllItems);
+      modal.classList.remove('hidden');
+      setTimeout(() => inputEl.focus(), 80);
+    }
+
+    function closeSearchModal() {
+      document.getElementById('search-modal').classList.add('hidden');
+    }
+
+    function filterModalItems(q) {
+      const filtered = q.trim() ? modalAllItems.filter(it => it.toLowerCase().includes(q.trim().toLowerCase())) : modalAllItems;
+      renderModalItems(filtered);
+    }
+
+    // 0 延迟局部元素切换渲染 (修复第2项)
+    function renderModalItems(items) {
+      const container = document.getElementById('modal-items-container');
+      container.innerHTML = '';
+      if (!items.length) {
+        container.innerHTML = '<div class="text-center py-6 text-xs text-gray-400">无匹配结果</div>';
+        return;
+      }
+      items.slice(0, 100).forEach(it => {
+        const isSel = modalSelectedItems.has(it);
+        const div = document.createElement('div');
+        div.className = `px-3 py-2 text-xs rounded-lg cursor-pointer flex items-center justify-between transition ${isSel ? 'bg-blue-50 text-blue-600 font-semibold border border-blue-200' : 'hover:bg-gray-100 text-gray-700'}`;
+        div.innerHTML = `<span>${it}</span> ${isSel ? '<i class="fa-solid fa-check text-blue-600"></i>' : ''}`;
+        div.onclick = () => {
+          if (modalCurrentType === 'brand') {
+            modalSelectedItems = new Set([it]);
+            confirmModalSelection();
+            return;
+          }
+          if (modalSelectedItems.has(it)) {
+            modalSelectedItems.delete(it);
+            div.className = 'px-3 py-2 text-xs rounded-lg cursor-pointer flex items-center justify-between transition hover:bg-gray-100 text-gray-700';
+            div.innerHTML = `<span>${it}</span>`;
+          } else {
+            modalSelectedItems.add(it);
+            div.className = 'px-3 py-2 text-xs rounded-lg cursor-pointer flex items-center justify-between transition bg-blue-50 text-blue-600 font-semibold border border-blue-200';
+            div.innerHTML = `<span>${it}</span> <i class="fa-solid fa-check text-blue-600"></i>`;
+          }
+          document.getElementById('modal-selected-badge').innerText = `已选: ${modalSelectedItems.size} 项 (确定后将直接替换原有内容)`;
+        };
+        container.appendChild(div);
+      });
+      document.getElementById('modal-selected-badge').innerText = `已选: ${modalSelectedItems.size} 项 (确定后将直接替换原有内容)`;
+    }
+
+    // 确认填入 -> 修复第3项: 100% 替换原有内容，清空原旧数据
+    function confirmModalSelection() {
+      const arr = Array.from(modalSelectedItems);
+      if (!arr.length) {
+        closeSearchModal();
+        return;
+      }
+
+      if (modalCurrentType === 'brand') {
+        const sel = arr[0];
+        const name = sel.split(' (')[0];
+        const bid = sel.split('(')[1]?.replace(')', '') || '';
+        if (currentModule === 'android') {
+          document.getElementById('a-brand-name').value = name;
+          document.getElementById('a-brand-id').value = bid;
+        } else if (currentModule === 'laptop') {
+          document.getElementById('l-brand-name').value = name;
+          document.getElementById('l-brand-id').value = bid;
+        } else if (currentModule === 'watch') {
+          document.getElementById('w-brand-name').value = name;
+          document.getElementById('w-brand-id').value = bid;
+        }
+      } else if (modalTargetInputId && document.getElementById(modalTargetInputId)) {
+        const el = document.getElementById(modalTargetInputId);
+        const sep = (modalCurrentType === 'color' && currentModule === 'android') || modalCurrentType === 'cpu' || modalCurrentType === 'gpu' || modalCurrentType === 'ssd' || modalCurrentType === 'hdd' ? '、' : ' ';
+        // 直接替换（自然覆盖原有内容）
+        el.value = arr.join(sep);
+      }
+      closeSearchModal();
+    }
+
+    // 全维度字典配置大盘展示 (修复第5项)
+    function openDictConfigModal() {
+      document.getElementById('dict-config-modal').classList.remove('hidden');
+      switchDictTab('mobile');
+    }
+    function closeDictConfigModal() {
+      document.getElementById('dict-config-modal').classList.add('hidden');
+    }
+    function switchDictTab(tab) {
+      ['mobile', 'laptop', 'watch', 'brand'].forEach(t => {
+        const btn = document.getElementById(`dict-tab-${t}`);
+        if (t === tab) {
+          btn.className = "pb-2.5 border-b-2 border-blue-600 text-blue-600 flex items-center";
+        } else {
+          btn.className = "pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center";
+        }
+      });
+
+      const container = document.getElementById('dict-tab-content');
+      container.innerHTML = '';
+
+      if (tab === 'mobile') {
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>📱 手机&平板机型颜色 (${dictData.mobile_colors.length} 种)</span></div>
+              <div class="flex flex-wrap gap-1 max-h-48 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.mobile_colors.slice(0, 100).map(c => `<span class="px-2 py-0.5 text-[11px] bg-gray-100 text-gray-700 rounded">${c}</span>`).join('')}</div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>🛒 购买渠道 (${dictData.mobile_channels.length} 种)</span></div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.mobile_channels.map(ch => `<span class="px-2 py-1 text-xs bg-blue-50 text-blue-700 font-medium rounded">${ch}</span>`).join('')}</div>
+              <div class="font-bold text-xs text-gray-700 mt-4 mb-2 flex justify-between"><span>📶 网络制式 (${dictData.mobile_networks.length} 种)</span></div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.mobile_networks.map(n => `<span class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 font-medium rounded">${n}</span>`).join('')}</div>
+            </div>
+          </div>
+        `;
+      } else if (tab === 'laptop') {
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2">💾 固态硬盘 (${dictData.laptop_ssds.length} 种)</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${dictData.laptop_ssds.map(s => `<span class="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">${s}</span>`).join('')}</div>
+              <div class="font-bold text-xs text-gray-700 mb-2">💿 机械硬盘 (${dictData.laptop_hdds.length} 种)</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.laptop_hdds.slice(0, 15).map(h => `<span class="px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded">${h}</span>`).join('')}</div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2">💻 处理器 CPU (${dictData.laptop_cpus.length} 款)</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${dictData.laptop_cpus.slice(0, 50).map(cp => `<span class="px-1.5 py-0.5 text-[11px] bg-purple-50 text-purple-700 rounded">${cp}</span>`).join('')}</div>
+              <div class="font-bold text-xs text-gray-700 mb-2">🎮 显卡 GPU (${dictData.laptop_gpus.length} 款)</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.laptop_gpus.slice(0, 50).map(gp => `<span class="px-1.5 py-0.5 text-[11px] bg-indigo-50 text-indigo-700 rounded">${gp}</span>`).join('')}</div>
+            </div>
+          </div>
+        `;
+      } else if (tab === 'watch') {
+        container.innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表壳材质 (${dictData.watch_materials.length} 种)</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${dictData.watch_materials.map(m => `<span class="px-2 py-0.5 text-[11px] bg-amber-50 text-amber-700 rounded">${m}</span>`).join('')}</div>
+              <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表壳尺寸 (${dictData.watch_sizes.length} 种)</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.watch_sizes.map(sz => `<span class="px-2 py-0.5 text-[11px] bg-blue-50 text-blue-700 rounded">${sz}</span>`).join('')}</div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表带类型 (${dictData.watch_straps.length} 种)</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${dictData.watch_straps.map(st => `<span class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded">${st}</span>`).join('')}</div>
+              <div class="font-bold text-xs text-gray-700 mb-2">⌚ 连接方式 (${dictData.watch_connections.length} 种)</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.watch_connections.map(cn => `<span class="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded">${cn}</span>`).join('')}</div>
+            </div>
+          </div>
+        `;
+      } else if (tab === 'brand') {
+        container.innerHTML = `
+          <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div class="font-bold text-xs text-gray-700 mb-2">🏷️ 品牌与 ID 全量对照表 (${dictData.brands.length} 个品牌)</div>
+            <div class="grid grid-cols-4 gap-2 max-h-72 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.brands.map(b => `<div class="px-2.5 py-1 text-xs bg-gray-50 border border-gray-100 rounded flex justify-between"><span class="font-bold text-gray-800">${b.name}</span><span class="text-blue-600 font-mono">ID:${b.id}</span></div>`).join('')}</div>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
