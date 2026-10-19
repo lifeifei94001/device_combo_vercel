@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-模板管理与智能精确对齐导入引擎 (支持文件路径与 BytesIO 内存流)
+模板管理与智能精确对齐导入引擎 (纯 openpyxl + csv 实现，支持文件路径与 BytesIO 内存流，零 pandas 依赖)
 """
 import os
 import io
+import csv
 import re
-import pandas as pd
+import openpyxl
 from typing import List, Dict, Any, Tuple
 from config.constants import (
     ANDROID_INPUT_COLUMNS, ANDROID_SAMPLE_DATA,
     LAPTOP_INPUT_COLUMNS, LAPTOP_SAMPLE_DATA,
     WATCH_INPUT_COLUMNS, WATCH_SAMPLE_DATA
 )
+
 
 class TemplateManager:
     @staticmethod
@@ -22,63 +24,125 @@ class TemplateManager:
                 os.makedirs(os.path.dirname(output_target), exist_ok=True)
 
             if module_id == "android":
-                df = pd.DataFrame(ANDROID_SAMPLE_DATA, columns=ANDROID_INPUT_COLUMNS)
+                cols, sample = ANDROID_INPUT_COLUMNS, ANDROID_SAMPLE_DATA
             elif module_id == "laptop":
-                df = pd.DataFrame(LAPTOP_SAMPLE_DATA, columns=LAPTOP_INPUT_COLUMNS)
+                cols, sample = LAPTOP_INPUT_COLUMNS, LAPTOP_SAMPLE_DATA
             elif module_id == "watch":
-                df = pd.DataFrame(WATCH_SAMPLE_DATA, columns=WATCH_INPUT_COLUMNS)
+                cols, sample = WATCH_INPUT_COLUMNS, WATCH_SAMPLE_DATA
             else:
-                df = pd.DataFrame(ANDROID_SAMPLE_DATA, columns=ANDROID_INPUT_COLUMNS)
+                cols, sample = ANDROID_INPUT_COLUMNS, ANDROID_SAMPLE_DATA
 
-            with pd.ExcelWriter(output_target, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name="机型配置填报模版")
-                worksheet = writer.sheets["机型配置填报模版"]
-                for col in worksheet.columns:
-                    max_len = max(len(str(cell.value or '')) for cell in col)
-                    col_letter = col[0].column_letter
-                    worksheet.column_dimensions[col_letter].width = max(max_len * 2, 14)
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "机型配置填报模版"
+
+            ws.append(list(cols))
+            for item in sample:
+                ws.append([item.get(c, '') for c in cols])
+
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = col[0].column_letter
+                ws.column_dimensions[col_letter].width = max(max_len * 2, 14)
+
+            wb.save(output_target)
+            wb.close()
             return True
         except Exception as e:
             print(f"生成模板失败: {e}")
             return False
 
     @staticmethod
-    def parse_uploaded_file(module_id: str, file_path_or_bytes: Any) -> Tuple[bool, List[Dict[str, Any]], str]:
-        """两趟严格对齐解析用户上传的 WPS / Excel 表格"""
-        try:
-            if isinstance(file_path_or_bytes, bytes):
-                df = pd.read_excel(io.BytesIO(file_path_or_bytes), dtype=str)
-            elif isinstance(file_path_or_bytes, str):
-                if file_path_or_bytes.endswith('.csv'):
-                    df = pd.read_csv(file_path_or_bytes, dtype=str)
-                else:
-                    df = pd.read_excel(file_path_or_bytes, dtype=str)
+    def _read_rows_from_input(file_path_or_bytes: Any) -> Tuple[List[str], List[Dict[str, str]]]:
+        """从 bytes 或文件路径读取表头与数据行字典列表 (支持 .xlsx 与 .csv)"""
+        if isinstance(file_path_or_bytes, bytes):
+            # 判断是否为 xlsx (PK\x03\x04 魔数)
+            if file_path_or_bytes[:4] == b'PK\x03\x04':
+                wb = openpyxl.load_workbook(io.BytesIO(file_path_or_bytes), read_only=True, data_only=True)
+                ws = wb.active
+                raw_rows = list(ws.iter_rows(values_only=True))
+                wb.close()
             else:
-                return False, [], "未知的文件格式"
+                # 按 CSV 解析 (自适应 UTF-8-SIG / UTF-8 / GBK)
+                text = None
+                for enc in ('utf-8-sig', 'utf-8', 'gbk', 'gb18030'):
+                    try:
+                        text = file_path_or_bytes.decode(enc)
+                        break
+                    except Exception:
+                        continue
+                if text is None:
+                    text = file_path_or_bytes.decode('utf-8', errors='ignore')
+                raw_rows = list(csv.reader(io.StringIO(text)))
+        elif isinstance(file_path_or_bytes, str):
+            if file_path_or_bytes.lower().endswith('.csv'):
+                text = None
+                for enc in ('utf-8-sig', 'utf-8', 'gbk', 'gb18030'):
+                    try:
+                        with open(file_path_or_bytes, 'r', encoding=enc) as f:
+                            text = f.read()
+                        break
+                    except Exception:
+                        continue
+                raw_rows = list(csv.reader(io.StringIO(text or '')))
+            else:
+                wb = openpyxl.load_workbook(file_path_or_bytes, read_only=True, data_only=True)
+                ws = wb.active
+                raw_rows = list(ws.iter_rows(values_only=True))
+                wb.close()
+        else:
+            raise ValueError("未知的文件格式")
 
-            df = df.fillna('')
-            df.columns = [str(c).strip() for c in df.columns]
+        if not raw_rows:
+            return [], []
+
+        headers = [str(c if c is not None else '').strip() for c in raw_rows[0]]
+        dict_rows = []
+        for r in raw_rows[1:]:
+            if not r:
+                continue
+            row_dict = {}
+            for idx, col_name in enumerate(headers):
+                val = r[idx] if idx < len(r) and r[idx] is not None else ''
+                s_val = str(val).strip()
+                if s_val.lower() == 'nan':
+                    s_val = ''
+                row_dict[col_name] = s_val
+            dict_rows.append(row_dict)
+        return headers, dict_rows
+
+    @staticmethod
+    def parse_uploaded_file(module_id: str, file_path_or_bytes: Any) -> Tuple[bool, List[Dict[str, Any]], str]:
+        """两趟严格对齐解析用户上传的 WPS / Excel / CSV 表格"""
+        try:
+            headers, dict_rows = TemplateManager._read_rows_from_input(file_path_or_bytes)
+            if not headers:
+                return False, [], "文件中未检测到表头信息。"
 
             def normalize_str(s):
                 return re.sub(r'[\s\(\)\[\]（）_\-]', '', str(s)).lower()
 
-            def find_col_val(row, aliases):
+            def find_col_val(row: Dict[str, str], aliases: List[str]) -> str:
+                # 第一趟扫描：严格全等匹配
                 for alias in aliases:
-                    for col in row.index:
-                        if str(col).strip().lower() == alias.strip().lower():
-                            v = str(row[col]).strip()
-                            if v: return v
+                    for col in headers:
+                        if col.strip().lower() == alias.strip().lower():
+                            v = str(row.get(col, '')).strip()
+                            if v:
+                                return v
+                # 第二趟扫描：去标点归一化严格匹配
                 for alias in aliases:
                     norm_alias = normalize_str(alias)
-                    for col in row.index:
+                    for col in headers:
                         if normalize_str(col) == norm_alias:
-                            v = str(row[col]).strip()
-                            if v: return v
+                            v = str(row.get(col, '')).strip()
+                            if v:
+                                return v
                 return ""
 
             records = []
             if module_id == "android":
-                for _, row in df.iterrows():
+                for row in dict_rows:
                     rec = {
                         '品牌编号': find_col_val(row, ['品牌编号', '品牌ID', '品牌代码']),
                         '品牌名称': find_col_val(row, ['品牌名称', '品牌', '厂商']),
@@ -97,7 +161,7 @@ class TemplateManager:
                         records.append(rec)
 
             elif module_id == "laptop":
-                for _, row in df.iterrows():
+                for row in dict_rows:
                     rec = {
                         '品牌ID': find_col_val(row, ['品牌ID', '品牌编号']),
                         '品牌名称': find_col_val(row, ['品牌名称', '品牌', '厂商']),
@@ -116,7 +180,7 @@ class TemplateManager:
                         records.append(rec)
 
             elif module_id == "watch":
-                for _, row in df.iterrows():
+                for row in dict_rows:
                     rec = {
                         '机型编号': find_col_val(row, ['机型编号', '型号ID']),
                         '品牌ID': find_col_val(row, ['品牌ID', '品牌编号']),

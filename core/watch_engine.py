@@ -1,26 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-智能手表机型排列组合算法引擎
+智能手表机型排列组合算法引擎 (零 pandas 依赖极速版)
 完整实现逻辑：
 1. 购买渠道、手机颜色、表壳材质、表壳尺寸、表带、连接 六大维度笛卡尔积排列
 2. 自动去重与智能排序 (国行优先，型号/品牌ID聚合)
 3. 别名自动填充 "其他"
 4. 输出标准 26 列表头格式
 """
-import pandas as pd
 from itertools import product
-from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from config.constants import TARGET_COLUMNS
+from core.df_compat import LightDataFrame, clean_date_str
+
 
 def clean_date(val: Any) -> str:
-    s = str(val).strip()
-    if not s or s.lower() == 'nan':
-        return ''
-    try:
-        return pd.to_datetime(s).strftime('%Y/%m/%d')
-    except Exception:
-        return s.split(' ')[0].replace('-', '/')
+    return clean_date_str(val)
+
 
 def clean_id(val: Any) -> str:
     s = str(val).strip()
@@ -36,6 +31,7 @@ def clean_id(val: Any) -> str:
         pass
     return s
 
+
 def split_tolerant(val: Any) -> List[str]:
     s = str(val).strip()
     if not s or s.lower() == 'nan':
@@ -50,7 +46,8 @@ def split_tolerant(val: Any) -> List[str]:
         items = [s]
     return items if items else ['']
 
-def generate_watch_combinations(records: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, int]:
+
+def generate_watch_combinations(records: List[Dict[str, Any]]) -> Tuple[LightDataFrame, int]:
     """
     接收多条手表录入数据，生成六维笛卡尔积组合结果 DataFrame。
     """
@@ -60,14 +57,18 @@ def generate_watch_combinations(records: List[Dict[str, Any]]) -> Tuple[pd.DataF
         model_num = clean_id(row.get('机型编号', '') or row.get('型号', ''))
         brand_id = clean_id(row.get('品牌ID', '') or row.get('品牌编号', ''))
         brand_name = str(row.get('品牌名称', '')).strip()
-        if brand_name.lower() == 'nan': brand_name = ''
-        
+        if brand_name.lower() == 'nan':
+            brand_name = ''
+
         on_price = str(row.get('开机价', '')).strip()
-        if on_price.lower() == 'nan': on_price = ''
+        if on_price.lower() == 'nan':
+            on_price = ''
         off_price = str(row.get('关机价', '')).strip()
-        if off_price.lower() == 'nan': off_price = ''
+        if off_price.lower() == 'nan':
+            off_price = ''
         min_price = str(row.get('开机最低价', '')).strip()
-        if min_price.lower() == 'nan': min_price = ''
+        if min_price.lower() == 'nan':
+            min_price = ''
 
         clean_time = clean_date(row.get('发布时间', '') or row.get('上市时间', ''))
 
@@ -112,26 +113,28 @@ def generate_watch_combinations(records: List[Dict[str, Any]]) -> Tuple[pd.DataF
             row_tuple = tuple(new_row.get(col, '') for col in TARGET_COLUMNS)
             all_combinations.add(row_tuple)
 
-    rows_dict_list = []
-    for row_tuple in all_combinations:
-        row_dict = dict(zip(TARGET_COLUMNS, row_tuple))
-        rows_dict_list.append(row_dict)
+    rows_dict_list = [dict(zip(TARGET_COLUMNS, row_tuple)) for row_tuple in all_combinations]
 
-    # 排序：购买渠道“国行”优先
     sort_fields = ["型号", "品牌ID", "购买渠道", "手机颜色", "表壳材质", "表壳尺寸", "表带", "连接"]
+
     def sort_key(d):
         key_parts = []
         for field in sort_fields:
             val = d.get(field, "")
             if field == "购买渠道":
-                if val == "国行": key_parts.append(('0', val))
-                elif val == "": key_parts.append(('2', ''))
-                else: key_parts.append(('1', val))
+                if val == "国行":
+                    key_parts.append(('0', val))
+                elif val == "":
+                    key_parts.append(('2', ''))
+                else:
+                    key_parts.append(('1', val))
             else:
-                if val == "": key_parts.append(('1', ''))
-                else: key_parts.append(('0', val))
+                if val == "":
+                    key_parts.append(('1', ''))
+                else:
+                    key_parts.append(('0', val))
         return tuple(key_parts)
 
     rows_dict_list.sort(key=sort_key)
-    result_df = pd.DataFrame(rows_dict_list, columns=TARGET_COLUMNS)
+    result_df = LightDataFrame(rows_dict_list, columns=TARGET_COLUMNS)
     return result_df, len(result_df)

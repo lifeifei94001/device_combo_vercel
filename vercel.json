@@ -2,7 +2,14 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "3C机型字典库.xlsx",
+          "core/**",
+          "config/**"
+        ]
+      }
     },
     {
       "src": "public/**",

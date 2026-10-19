@@ -177,7 +177,7 @@
           </button>
           <div id="user-dropdown" class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 hidden z-50">
             <a href="javascript:void(0)" onclick="alert('用户权限: 超级管理员\n状态: 正常在线')" class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"><i class="fa-solid fa-user-shield mr-2 text-blue-500"></i>账号信息</a>
-            <a href="javascript:void(0)" onclick="alert('当前版本: V3.2 旗舰版\n已全面优化选择替换、模版中心与全维度字典')" class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"><i class="fa-solid fa-code-branch mr-2 text-green-500"></i>系统版本</a>
+            <a href="javascript:void(0)" onclick="alert('当前版本: V3.5 云端无瑕版\n已全面优化选择替换、模版中心与全维度字典')" class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"><i class="fa-solid fa-code-branch mr-2 text-green-500"></i>系统版本</a>
           </div>
         </div>
       </div>
@@ -231,7 +231,7 @@
       <div id="view-combination" class="space-y-5">
         <div>
           <h1 id="page-title" class="text-xl font-bold text-gray-900 tracking-tight">手机&平板机型基本信息排列组合</h1>
-          <p id="page-subtitle" class="text-xs text-gray-500 mt-1">组合不同的参数，生成手机与平板机型信息排列列表 (已支持渠道/制式检索 · 1TB内存优化 · 颜色字典)</p>
+          <p id="page-subtitle" class="text-xs text-gray-500 mt-1">组合不同的参数，生成手机与平板机型信息排列列表 (已支持八级结构化排序 · 内存/运存从大到小 · 1TB内存优化)</p>
         </div>
 
         <div class="grid grid-cols-12 gap-5">
@@ -814,12 +814,12 @@
       if (mod === 'android') {
         document.getElementById('breadcrumb-current').innerText = '手机&平板组合';
         document.getElementById('page-title').innerText = '手机&平板机型基本信息排列组合';
-        document.getElementById('page-subtitle').innerText = '组合不同的参数，生成手机与平板机型信息排列列表 (支持渠道/制式检索 · 1TB内存优化 · 颜色字典)';
+        document.getElementById('page-subtitle').innerText = '组合不同的参数，生成手机与平板机型信息排列列表 (已支持八级结构化排序 · 内存/运存从大到小 · 1TB内存优化)';
         fA.classList.remove('hidden');
       } else if (mod === 'laptop') {
         document.getElementById('breadcrumb-current').innerText = '笔记本组合';
         document.getElementById('page-title').innerText = '笔记本机型基本信息排列组合';
-        document.getElementById('page-subtitle').innerText = '固态/机械/显卡/CPU 四维顿号拆分组合 (已去除运行内存 · 固态字典精准修复)';
+        document.getElementById('page-subtitle').innerText = '固态/机械/显卡/CPU 四维顿号拆分组合 (已支持七级结构化排序 · 固态/机械容量从大到小 · 固态字典精准修复)';
         fL.classList.remove('hidden');
       } else if (mod === 'watch') {
         document.getElementById('breadcrumb-current').innerText = '智能手表组合';
