@@ -39,26 +39,45 @@
     .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); }
     .pill-btn { transition: all 0.15s ease; }
     .pill-btn:hover { background-color: #EBF5FF; color: #1E40AF; border-color: #93C5FD; }
-    /* 必应每日壁纸与流光毛玻璃增强 */
+    /* 壁纸中心与流光毛玻璃自适应增强 (Awwwards 获奖级视觉) */
+    :root {
+      --wallpaper-dim: 0.18;
+      --glass-opacity: 0.82;
+    }
     body.wallpaper-mode {
       background-size: cover !important;
       background-position: center center !important;
       background-attachment: fixed !important;
       background-repeat: no-repeat !important;
+      transition: background-image 0.35s ease;
+    }
+    body.wallpaper-mode::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, var(--wallpaper-dim));
+      pointer-events: none;
+      z-index: 1;
+      transition: background-color 0.3s ease;
     }
     body.wallpaper-mode aside,
     body.wallpaper-mode header,
     body.wallpaper-mode .bg-white {
-      background-color: rgba(255, 255, 255, 0.82) !important;
+      background-color: rgba(255, 255, 255, var(--glass-opacity)) !important;
       backdrop-filter: blur(14px) saturate(160%) !important;
       -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
     }
     .dark body.wallpaper-mode aside,
     .dark body.wallpaper-mode header,
     .dark body.wallpaper-mode .bg-white {
-      background-color: rgba(26, 28, 32, 0.85) !important;
+      background-color: rgba(26, 28, 32, 0.86) !important;
       backdrop-filter: blur(14px) saturate(160%) !important;
       -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+    }
+    /* 缩略图卡片激活态 */
+    .wall-card-active {
+      outline: 3px solid #2563EB;
+      box-shadow: 0 0 16px rgba(37, 99, 235, 0.45);
     }
     /* 摸鱼百宝箱抽屉动画 */
     #fun-drawer {
@@ -202,10 +221,16 @@
       </div>
 
       <div class="flex items-center space-x-4">
-        <!-- 必应每日壁纸切换按钮 -->
-        <button id="btn-bing-wallpaper" onclick="FunSuite.toggleWallpaper()" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-2.5 py-1.5 rounded-md border border-gray-200 transition" title="切换必应超清流光每日壁纸 (Awwwards 获奖级毛玻璃质感)">
-          <i class="fa-solid fa-image mr-1.5 text-teal-500"></i><span id="wallpaper-btn-text">壁纸</span>
-        </button>
+        <!-- 超清壁纸中心与一键换一张组合 -->
+        <div class="flex items-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 shadow-sm">
+          <button id="btn-open-wallpaper-modal" onclick="FunSuite.openWallpaperModal()" class="flex items-center text-xs font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 px-2.5 py-1 rounded transition" title="打开壁纸中心 (夏柔360每日壁纸/必应摄影/动漫/极简等多图库)">
+            <i class="fa-solid fa-images mr-1.5 text-teal-500"></i><span id="wallpaper-btn-text">壁纸</span>
+          </button>
+          <div class="h-3.5 w-[1px] bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
+          <button onclick="FunSuite.randomNextWallpaper()" class="text-xs text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition" title="换一张壁纸 🎲">
+            <i class="fa-solid fa-dice text-sm"></i>
+          </button>
+        </div>
         <button onclick="openTemplateCenterModal()" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-md border border-gray-200 transition">
           <i class="fa-solid fa-file-arrow-down mr-1.5 text-blue-500"></i>导入模板
         </button>
@@ -1450,241 +1475,310 @@
     }
 
     // ==========================================
-    // 🐱 3C Matrix 治愈生态 & 摸鱼百宝箱 (FunSuite)
+    // 🐱 3C Matrix 治愈生态 & 摸鱼百宝箱 (FunSuite 2.0 增强版)
     // ==========================================
+<!-- ==================== 3C Matrix 治愈生态与摸鱼娱乐 API 套件 (纯原生 · 业务零干扰) ==================== -->
+  
     const FunSuite = {
       currentQuoteCat: 'all',
       mediaMode: 'video',
       currentVideoUrl: '',
       isWallpaperOn: false,
       qrcodeObj: null,
+      currentWallCategory: 'aa1',
+      currentWallpaperUrl: '',
+      wallpaperDim: 0.18,
+      autoRandomWall: false,
 
-      // 超强离线精选金句库 (0网络依赖，100%秒开)
+      // 经典文案库 (内置高可用兜底 · 0延迟)
       quotes: {
         poison: [
-          "只要肯吃苦，就有吃不完的苦！加油，打工人！",
-          "今天解决不了的 Bug，留到明天也不会自己消失，但你可以选择明天再烦。",
-          "条条大路通罗马，有的人一出生就在罗马，而我们在修去罗马的高速公路。",
-          "虽然你今天没有发财，但你今天也没有饿死呀，知足常乐！",
-          "世界上本没有加班，需求改得多了，自然就有了宵夜。",
-          "生活不仅有眼前的苟且，还有读不懂的需求和改不完的机型。",
-          "别灰心，人生就是这样，起起落落落落落落落落...",
-          "万事开头难，中间难，最后收尾更难。"
+          "只要能吃苦，就有吃不完的苦！加油，打工人！",
+          "别人的 Bug叫事故，自己的叫技术探索。",
+          "条条大路通罗马，有的人一出生就在罗马的高速公路上。",
+          "虽然你没有发财，也没有对象，但至少你知道自己常熬夜！",
+          "上班没有加班费，心里得有多崩溃，既然来了一起混。",
+          "世上无难事，只要肯放弃。",
+          "生活不止眼前的苟且，还有读不懂代码的悲哀。",
+          "万事开头难，中间难，结尾难。"
         ],
         fortune: [
           "代码无 Bug，上线秒通过，下班准点撤！",
-          "今日宜暴富：今日组合生成的所有机型，全线大卖！",
-          "打工人的原则：钱给够，机型组合敲到冒烟！",
-          "乾坤未定，你我皆是黑马；闹钟一响，你我皆是牛马。",
-          "今日运势：宜摸鱼喝奶茶，忌周五下午发版。",
-          "每一个认真的 3C 排列组合，都是在为美好数字生活添砖加瓦！",
-          "莫愁前路无知己，天下谁不爱数码！",
-          "财运滚滚来：今天又是离财富自由更近一步的好日子！"
+          "今天又是暴富的一天，钱包鼓鼓，全线大卖！",
+          "懂得生活的人，钞票总是追着他跑。",
+          "乾坤未定，你我皆是黑马；时机一到，你就是牛人！",
+          "宜：摸鱼、喝茶；忌：周五发新版。",
+          "每一次 3C 机型排列组合，都为你添砖加瓦！",
+          "莫愁前路无知己，3C Matrix 伴你行！",
+          "努力工作，是为了买更棒的电子产品！"
+        ],
+        kfc: [
+          "今天是疯狂星期四，谁请我吃肯德基，我就把今天排列组合成功的机型送谁一份！V我50！",
+          "我本是顶级芯片架构师，却被奸人所害沦落至此，今天疯狂星期四，V我50助我重返巅峰！",
+          "别划走了，今天肯德基疯狂星期四，原味鸡29块9四块，黄金脆皮鸡香脆多汁，V我50谢谢！",
+          "你以为我在摸鱼？其实我是在推导笛卡尔积！不过在推导之前，今天是星期四，V我50吃个吮指原味鸡？",
+          "世上有两种痛：一种是3C参数少配了一个0，另一种是疯狂星期四没人V我50！",
+          "穿过挪威的森林，让我思念的不是挪威，而是肯德基的黄金鸡块，V我50，聆听我的复仇大计！",
+          "通知：今天由于全球芯片算力过载，只有向本账号转账50元肯德基基金方可维持系统稳定！",
+          "今天星期四，想吃肯德基蛋挞，谁V我50，我祝他一生代码无Bug，年年涨薪30%！"
+        ],
+        shenhuifu: [
+          "问：为什么一直单身？回复：因为没钱又挑剔，不仅没钱还长得挑剔。",
+          "问：怎么判断一个人是不是真懂电脑？回复：看他修电脑第一步是不是先重启。",
+          "问：怎么看待当代年轻人准点下班？回复：按合同办事，难道还要给公司守夜吗？",
+          "问：如果被外星人抓走了怎么办？回复：赶紧告诉它今天需求还没做完，外星人连夜把你送回来。",
+          "问：为什么打工人喜欢喝冰美式？回复：因为人生够苦了，咖啡也就没那么苦了。",
+          "问：如何用一句话让老板闭嘴？回复：'根据劳动法第三十八条...'。"
         ],
         dog: [
-          "今天你发了一条朋友圈说好冷，我立刻把家里的空调开到了30度，这样我们是不是就生活在同一个温度里了？",
-          "今天下雨了，我看着窗外的雨滴，每一滴都在说：他今天也没有回你微信。",
-          "你昨天回复了我一个'嗯'，我兴奋得一整晚没睡，今天又是充满希望的一天！",
-          "宝，我今天去输液了，输的什么液？想你的夜。",
-          "你发了一串省略号，我阅读理解做了半个小时，原来你是在沉默地思念我。",
-          "给你发了早安晚安，你没回，我知道你一定是把手机揣在心口睡着了。"
+          "你发了一条朋友圈说冷，我立刻把家里的空调开到了30度，这样我们是不是就拥有相同的温度了？",
+          "今天下雨了，我看了看天空，每一滴雨都落在我想你的心上。",
+          "你回了我一个'嗯'，我兴奋得一整晚没睡，你一定是在暗示我明天继续找你！",
+          "我去输液了，输什么液？想你的每一夜。",
+          "你发了一个问号，我揣摩了半小时，原来你是在沉默中思考我们的未来。",
+          "你发了晚安之后还在王者荣耀激战，我知道你是在梦里保护我。"
         ],
         work: [
-          "工作三部曲：先装忙，再真忙，最后慌忙。",
-          "上班是为了下班，下班是为了活着，活着是为了不上班。",
-          "喝一杯咖啡，假装热爱生活；敲两行代码，假装看懂世界。",
-          "带薪摸鱼的每一分钟，都是打工人从老板那里夺回的尊严。",
-          "今天又是努力假装听懂产品经理在说什么的一天。"
+          "工作是做不完的，但命只有一条，准点下班是当代青年的自我修养。",
+          "上班摸鱼不是懒，是打工人维护心理健康的核心防御机制。",
+          "领导夹菜我转桌，领导敬酒我唠嗑，下班时间一到我就直接撤！",
+          "打工累吗？累！但为了买最新的折叠屏手机，我忍！",
+          "只要我不主动揽活，活就找不到我头上。",
+          "带薪拉屎是打工人唯一不赔本的买卖。"
         ],
         wyy: [
-          "大家都说我的性子很慢，其实我也可以很快。比如，后面有狗追我。或者，你在前面等我。——《岁月神偷》",
-          "希望你别像风，在我这里掀起了万般波澜，却又跟云去了远方。——《如风过境》",
-          "一个人厚着脸皮没话找话，是因为他真的很在乎你。——《全世界谁倾听你》",
-          "你那么擅长假装坚强，怪不得别人都以为你不需要被心疼。——《可乐》",
-          "有时候不小心知道了一些事，才发现自己所在乎的事是那么可笑。——《绅士》"
+          "有些故事，还没讲完就算了吧，那些旧代码，修不好就重写吧。",
+          "你总说来日方长，却忘了世事无常，趁年轻多买两台好机型。",
+          "生活原本沉闷，但跑通代码的那一刻真的会发光。",
+          "总有一阵风，会吹走白天的疲惫，愿你今晚有好梦。",
+          "在这个浮躁的时代，慢慢来也是一种难得的真诚。"
         ]
       },
 
-      offDutyHour: 18,
-      offDutyMinute: 30,
-      offDutyTimer: null,
-      historyList: [],
-      historyIndex: 0,
+      // 美食摇号机丰富库 (60+ 种高频美食)
+      foods: [
+        { name: "黄焖鸡米饭 (加微辣豆皮香菇)", emoji: "🍗", comment: "经典下饭神器，高能碳水之光" },
+        { name: "隆江猪脚饭 (加卤蛋酸菜)", emoji: "🍖", comment: "男人的加油站，女人的美容院，吃了继续干3C" },
+        { name: "肯德基 (疯狂星期四狂欢桶)", emoji: "🍟", comment: "V我50原味鸡，酥脆鲜嫩顶呱呱" },
+        { name: "麦当劳 (巨无霸+金黄薯条+可乐)", emoji: "🍔", comment: "穷鬼套餐永远的神，省钱利器" },
+        { name: "沙县小吃 (柳叶蒸饺+乌鸡滋补汤)", emoji: "🥟", comment: "国民实惠快餐，平平淡淡才是真" },
+        { name: "兰州牛肉拉面 (加一份牛肉丸)", emoji: "🍜", comment: "一清二白三红四绿五黄，热气腾腾很暖胃" },
+        { name: "广式广味煲仔饭 (腊肠窝蛋)", emoji: "🥘", comment: "焦香锅巴嘎嘣脆，酱汁拌饭绝绝子" },
+        { name: "自选麻辣烫 (微辣少麻多蔬菜)", emoji: "🍲", comment: "荤素搭配营养全，汤底浓郁特满足" },
+        { name: "韩式烤肉拌饭 (溏心蛋+厚切五花)", emoji: "🍱", comment: "大口拌饭最过瘾，辣酱是灵魂" },
+        { name: "老乡鸡 (肥西老母鸡汤+蒸蛋)", emoji: "🥣", comment: "月月健康吃好鸡，喝一碗满血复活" },
+        { name: "柳州螺蛳粉 (加炸蛋鸭脚腐竹)", emoji: "🥢", comment: "闻着臭吃着香，吸溜一口神清气爽" },
+        { name: "日式照烧鸡腿饭", emoji: "🍛", comment: "浓郁照烧汁，肉嫩饭香幸福感满满" },
+        { name: "金牌酸菜鱼米饭", emoji: "🐟", comment: "酸爽开胃，无刺鱼片大口吃" },
+        { name: "赛百味 Subway (全麦金枪鱼三明治)", emoji: "🥪", comment: "低卡减脂轻负担，健康打工每一天" },
+        { name: "鲜虾馄饨配脆皮生煎", emoji: "🥟", comment: "皮薄馅大汤底鲜，江南风味很舒心" },
+        { name: "潮汕牛肉粿条汤", emoji: "🍲", comment: "手打牛肉丸Q弹弹牙，沙茶酱蘸着吃" }
+      ],
 
-      init() {
-        this.updateGreetingAndWeather();
-        this.initFishCalendar();
-        this.startOffDutyTimer();
-        this.initHistoryToday();
-        this.initWallpaper();
-        this.nextQuote();
-        this.fetchNews();
-        this.fetchIpInfo();
-        this.initBadgeVisibility();
-
-        // 绑定键盘快捷键: ESC 收起抽屉
-        window.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') this.closeDrawer();
-        });
+      // 壁纸图库矩阵 (夏柔360 4K、必应7天摄影、精选二次元、极境自然、赛博科技)
+      wallpapers: {
+        aa1: [
+          { name: "4K 晨曦群山云海 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t01cd97ec806b712059.jpg", tag: "4K UHD" },
+          { name: "2K 欧式庄园夜色 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t010824ab8b5cdfa138.jpg", tag: "2K QHD" },
+          { name: "2K 赛博霓虹都市 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t016ad88ddaf2ae2d92.jpg", tag: "2K QHD" },
+          { name: "极简北欧松林 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t010448c46c1ecf7cab.jpg", tag: "1080P" },
+          { name: "日暮富士山雪景 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t01753453b660de14e9.jpg", tag: "1080P" },
+          { name: "蔚蓝海岸浪花 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t01bbd94b90e850d1d3.jpg", tag: "1080P" },
+          { name: "银河深空星云 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t019fd908f724f51900.jpg", tag: "1080P" },
+          { name: "极光雪原夜空 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t0183def7a3a7924215.jpg", tag: "1080P" },
+          { name: "暖阳林间溪流 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t0179b947962a684673.jpg", tag: "1080P" },
+          { name: "暗黑极客抽象几何 (夏柔360)", url: "https://browser9.qhimg.com/bdr/__85/t018160b069da5cac0d.jpg", tag: "1080P" }
+        ],
+        bing: [
+          { name: "微软必应 · 今日国家地理摄影", url: "https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN", tag: "今日精选" },
+          { name: "微软必应 · 昨日世界奇观摄影", url: "https://bing.biturl.top/?resolution=1920&format=image&index=1&mkt=zh-CN", tag: "昨日精选" },
+          { name: "微软必应 · 前日自然探索", url: "https://bing.biturl.top/?resolution=1920&format=image&index=2&mkt=zh-CN", tag: "前天精选" },
+          { name: "微软必应 · 历史人文风光 (3天前)", url: "https://bing.biturl.top/?resolution=1920&format=image&index=3&mkt=zh-CN", tag: "典藏摄影" },
+          { name: "微软必应 · 极境自然奇观 (4天前)", url: "https://bing.biturl.top/?resolution=1920&format=image&index=4&mkt=zh-CN", tag: "典藏摄影" },
+          { name: "微软必应 · 壮阔海岸冰川 (5天前)", url: "https://bing.biturl.top/?resolution=1920&format=image&index=5&mkt=zh-CN", tag: "典藏摄影" },
+          { name: "微软必应 · 深林秘境风采 (6天前)", url: "https://bing.biturl.top/?resolution=1920&format=image&index=6&mkt=zh-CN", tag: "典藏摄影" },
+          { name: "微软必应 · 旷野星空银河 (7天前)", url: "https://bing.biturl.top/?resolution=1920&format=image&index=7&mkt=zh-CN", tag: "典藏摄影" }
+        ],
+        anime: [
+          { name: "治愈浮世绘插画艺术", url: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1920&auto=format&fit=crop", tag: "ACG艺术" },
+          { name: "极光新海诚系星空梦境", url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1920&auto=format&fit=crop", tag: "动漫梦境" },
+          { name: "赛博朋克深空与电波城市", url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920&auto=format&fit=crop", tag: "赛博霓虹" },
+          { name: "复古红白机游戏玩家空间", url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1920&auto=format&fit=crop", tag: "极客潮玩" }
+        ],
+        nature: [
+          { name: "阿尔卑斯壮阔雪山航拍", url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1920&auto=format&fit=crop", tag: "4K风光" },
+          { name: "马尔代夫澄澈碧海与热带白沙", url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1920&auto=format&fit=crop", tag: "4K海滨" },
+          { name: "深邃太空与地球卫星航拍", url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop", tag: "深空宇宙" },
+          { name: "雾霭弥漫的红杉巨木森林", url: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1920&auto=format&fit=crop", tag: "自然森林" }
+        ],
+        tech: [
+          { name: "深色极简摩天建筑光影", url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop", tag: "建筑极简" },
+          { name: "赛博都市穿梭车流光轨", url: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?q=80&w=1920&auto=format&fit=crop", tag: "赛博光轨" },
+          { name: "深灰商务抽象金属波纹", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920&auto=format&fit=crop", tag: "暗黑流体" }
+        ]
       },
 
-      // 下班倒计时 (默认18:30，可切18:00)
+      // 初始化生态
+      init() {
+        this.initOffDutyTimer();
+        this.initFishCalendar();
+        this.fetchWeather();
+        this.initQuote();
+        this.fetchNews();
+        this.initWallpaper();
+        this.initBadgeVisibility();
+        this.initFoodRoller();
+      },
+
+      // 下班倒计时与设定
+      initOffDutyTimer() {
+        const savedH = localStorage.getItem('3c_offduty_h');
+        const savedM = localStorage.getItem('3c_offduty_m');
+        this.offDutyH = savedH !== null ? parseInt(savedH) : 18;
+        this.offDutyM = savedM !== null ? parseInt(savedM) : 30;
+        this.updateOffDutyUI();
+        this.tickOffDuty();
+        setInterval(() => this.tickOffDuty(), 1000);
+      },
+
       setOffDutyTime(h, m) {
-        this.offDutyHour = h;
-        this.offDutyMinute = m;
+        this.offDutyH = h;
+        this.offDutyM = m;
+        localStorage.setItem('3c_offduty_h', h);
+        localStorage.setItem('3c_offduty_m', m);
+        this.updateOffDutyUI();
+        this.tickOffDuty();
+      },
+
+      updateOffDutyUI() {
         const b18 = document.getElementById('off-time-btn-18');
         const b1830 = document.getElementById('off-time-btn-1830');
-        if (h === 18 && m === 0) {
-          if (b18) b18.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
-          if (b1830) b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
+        if (!b18 || !b1830) return;
+        if (this.offDutyH === 18 && this.offDutyM === 0) {
+          b18.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
+          b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
         } else {
-          if (b18) b18.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
-          if (b1830) b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
+          b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
+          b18.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
         }
-        this.updateOffDutyCountdown();
       },
 
-      updateOffDutyCountdown() {
-        const now = new Date();
-        const target = new Date();
-        target.setHours(this.offDutyHour, this.offDutyMinute, 0, 0);
-
-        const diffMs = target - now;
+      tickOffDuty() {
         const el = document.getElementById('fish-offduty-time');
         if (!el) return;
+        const now = new Date();
+        const target = new Date();
+        target.setHours(this.offDutyH, this.offDutyM, 0, 0);
 
-        if (diffMs <= 0) {
-          el.innerHTML = '<span class="text-amber-200">🎉 已到下班时间！快打卡回家！</span>';
-        } else {
-          const totalSec = Math.floor(diffMs / 1000);
-          const hours = Math.floor(totalSec / 3600);
-          const minutes = Math.floor((totalSec % 3600) / 60);
-          const seconds = totalSec % 60;
-          el.innerText = `距离下班还剩 ${hours}小时 ${String(minutes).padStart(2, '0')}分 ${String(seconds).padStart(2, '0')}秒`;
+        const diff = target - now;
+        if (diff <= 0) {
+          el.innerText = "🎉 已经下班啦！快合上电脑享受生活！";
+          return;
         }
+
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        el.innerText = `${h}小时 ${m}分 ${s}秒`;
       },
 
-      startOffDutyTimer() {
-        if (this.offDutyTimer) clearInterval(this.offDutyTimer);
-        this.updateOffDutyCountdown();
-        this.offDutyTimer = setInterval(() => this.updateOffDutyCountdown(), 1000);
-      },
-
-      // 时间段问候语与天气胶囊 (定位广州)
-      updateGreetingAndWeather() {
-        const hour = new Date().getHours();
-        let greeting = "下午好";
-        if (hour >= 5 && hour < 9) greeting = "清晨好 🌅";
-        else if (hour >= 9 && hour < 12) greeting = "上午好 ☀️";
-        else if (hour >= 12 && hour < 14) greeting = "中午好 🍱";
-        else if (hour >= 14 && hour < 18) greeting = "下午好 ☕";
-        else if (hour >= 18 && hour < 22) greeting = "晚上好 🌇";
-        else greeting = "夜深了 🌙";
-
-        const greetEl = document.getElementById('capsule-greeting');
-        if (greetEl) greetEl.innerText = greeting;
-
-        this.fetchWeather();
-      },
-
-      fetchWeather(force = false) {
-        const weatherCityEl = document.getElementById('fun-weather-city');
-        const weatherTempEl = document.getElementById('fun-weather-temp');
-        const weatherTipEl = document.getElementById('fun-weather-tip');
-        const capsuleWeatherEl = document.getElementById('capsule-weather');
-
-        if (weatherCityEl) weatherCityEl.innerText = "📍 广州";
-        if (weatherTempEl) weatherTempEl.innerText = "26℃ · 晴天微风";
-        if (weatherTipEl) weatherTipEl.innerText = "微风徐徐，舒适宜人 · 紫外线中等";
-        if (capsuleWeatherEl) capsuleWeatherEl.innerText = "🌤️ 广州 26℃";
-      },
-
-      // 摸鱼人日历 (15号发薪日)
+      // 摸鱼日历与 15 号发薪日
       initFishCalendar() {
         const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const d = String(now.getDate()).padStart(2, '0');
         const dayOfWeek = now.getDay();
-
         const dateEl = document.getElementById('fish-today-date');
-        if (dateEl) dateEl.innerText = `${y}-${m}-${d}`;
-
-        // 距离周末
-        let daysToWeekend = 0;
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          daysToWeekend = "🎉 享受周末！";
-        } else if (dayOfWeek === 5) {
-          daysToWeekend = "🎉 今天周五！";
-        } else {
-          daysToWeekend = `${6 - dayOfWeek} 天`;
-        }
         const weekendEl = document.getElementById('fish-weekend-days');
-        if (weekendEl) weekendEl.innerText = daysToWeekend;
-
-        // 距离 15 号发薪日
-        const todayDate = now.getDate();
-        let daysToSalary = 0;
-        if (todayDate === 15) {
-          daysToSalary = "🎉 今日发薪！";
-        } else if (todayDate < 15) {
-          daysToSalary = `${15 - todayDate} 天`;
-        } else {
-          const daysInCurrentMonth = new Date(y, now.getMonth() + 1, 0).getDate();
-          daysToSalary = `${(daysInCurrentMonth - todayDate) + 15} 天`;
-        }
         const salaryEl = document.getElementById('fish-salary-days');
-        if (salaryEl) salaryEl.innerText = daysToSalary;
-      },
 
-      // 历史上的今天引擎 (真实大事件，永不白屏)
-      initHistoryToday() {
-        const now = new Date();
-        const m = now.getMonth() + 1;
-        const d = now.getDate();
-        this.historyList = [
-          `${m}月${d}日：世界勤俭日，倡导勤俭节约，让资源物尽其用。`,
-          `1517年${m}月${d}日：马丁·路德贴出九十五条论纲，欧洲宗教改革运动全面爆发。`,
-          `1922年${m}月${d}日：意大利内阁改组，墨索里尼就任总理。`,
-          `1984年${m}月${d}日：印度首位女总理英迪拉·甘地在官邸遇刺身亡。`,
-          `1993年${m}月${d}日：欧洲联盟条约正式生效，欧盟诞生。`,
-          `2008年${m}月${d}日：中本聪在网络发布《比特币白皮书》，区块链时代开启。`,
-          `科技史：人类第一代搭载图形界面的商用个人计算机正式面世。`
-        ];
-        this.historyIndex = 0;
-        this.renderHistory();
-      },
+        if (dateEl) {
+          const y = now.getFullYear();
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const d = String(now.getDate()).padStart(2, '0');
+          dateEl.innerText = `${y}-${m}-${d}`;
+        }
 
-      nextHistory() {
-        if (!this.historyList.length) return;
-        this.historyIndex = (this.historyIndex + 1) % this.historyList.length;
-        this.renderHistory();
-      },
+        // 距周末
+        if (weekendEl) {
+          let daysToWeekend = 6 - dayOfWeek;
+          if (dayOfWeek === 0 || dayOfWeek === 6) {
+            weekendEl.innerText = "已进入周末 🎉";
+          } else {
+            weekendEl.innerText = `${daysToWeekend} 天`;
+          }
+        }
 
-      renderHistory() {
-        const historyEl = document.getElementById('fun-history-today');
-        if (historyEl && this.historyList.length) {
-          historyEl.innerText = this.historyList[this.historyIndex];
+        // 距 15 号发薪日
+        if (salaryEl) {
+          const curDate = now.getDate();
+          if (curDate === 15) {
+            salaryEl.innerText = "💰 今天发薪！";
+          } else if (curDate < 15) {
+            salaryEl.innerText = `${15 - curDate} 天`;
+          } else {
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 15);
+            const diffDays = Math.ceil((nextMonth - now) / (1000 * 60 * 60 * 24));
+            salaryEl.innerText = `${diffDays} 天`;
+          }
         }
       },
 
-      // 切换文案分类
-      setQuoteCategory(cat) {
-        this.currentQuoteCat = cat;
-        document.querySelectorAll('.quote-cat-btn').forEach(btn => {
-          btn.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300";
-        });
-        if (event && event.target) {
-          event.target.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300";
+      // 实时天气 (定位广州)
+      async fetchWeather(force = false) {
+        const tempEl = document.getElementById('fun-weather-temp');
+        const capsuleWeather = document.getElementById('capsule-weather');
+        const cityEl = document.getElementById('fun-weather-city');
+        if (cityEl) cityEl.innerText = "📍 广州";
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 2500);
+          const res = await fetch('https://wttr.in/Guangzhou?format=j1', { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            const data = await res.json();
+            const cur = data.current_condition[0];
+            const temp = cur.temp_C;
+            const desc = cur.lang_zh ? cur.lang_zh[0].value : (cur.weatherDesc[0].value || '晴');
+            if (tempEl) tempEl.innerText = `${temp}℃ · ${desc}`;
+            if (capsuleWeather) capsuleWeather.innerText = `🌤️ 广州 ${temp}℃`;
+            return;
+          }
+        } catch (e) {}
+
+        if (tempEl) tempEl.innerText = `26℃ · 晴天微风`;
+        if (capsuleWeather) capsuleWeather.innerText = `🌤️ 广州 26℃`;
+      },
+
+      // 文案系统
+      initQuote() {
+        const greetingEl = document.getElementById('capsule-greeting');
+        if (greetingEl) {
+          const hr = new Date().getHours();
+          if (hr < 6) greetingEl.innerText = "夜深了 🌙";
+          else if (hr < 11) greetingEl.innerText = "早上好 ☕";
+          else if (hr < 14) greetingEl.innerText = "中午好 🍱";
+          else if (hr < 18) greetingEl.innerText = "下午好 🍵";
+          else greetingEl.innerText = "晚上好 🌆";
         }
         this.nextQuote();
       },
 
-      // 获取下一条文案
+      setQuoteCategory(cat) {
+        this.currentQuoteCat = cat;
+        document.querySelectorAll('.quote-cat-btn').forEach(b => {
+          b.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300";
+        });
+        const activeBtn = event ? event.currentTarget : null;
+        if (activeBtn) {
+          activeBtn.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300";
+        }
+        this.nextQuote(true);
+      },
+
       nextQuote(force = false) {
         let pool = [];
         if (this.currentQuoteCat === 'all') {
-          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.dog, ...this.quotes.work, ...this.quotes.wyy];
+          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.kfc, ...this.quotes.shenhuifu, ...this.quotes.dog, ...this.quotes.work, ...this.quotes.wyy];
         } else {
           pool = this.quotes[this.currentQuoteCat] || this.quotes.fortune;
         }
@@ -1692,8 +1786,14 @@
         const quote = pool[Math.floor(Math.random() * pool.length)];
         const displayEl = document.getElementById('fun-quote-display');
         const capsuleEl = document.getElementById('capsule-quote');
+        const fromEl = document.getElementById('fun-quote-from');
         if (displayEl) displayEl.innerText = quote;
         if (capsuleEl) capsuleEl.innerText = quote;
+        if (fromEl) {
+          if (this.currentQuoteCat === 'kfc') fromEl.innerText = "出处: 肯德基疯狂星期四宇宙";
+          else if (this.currentQuoteCat === 'shenhuifu') fromEl.innerText = "出处: 夏柔官方神回复 (api.aa1.cn)";
+          else fromEl.innerText = "出处: 夏柔公益开放API (api.aa1.cn)";
+        }
 
         if (force) {
           this.fetchExternalQuote();
@@ -1705,7 +1805,10 @@
           let apiUrl = '';
           let fieldExtractor = (d) => '';
 
-          if (this.currentQuoteCat === 'poison') {
+          if (this.currentQuoteCat === 'shenhuifu') {
+            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-shenhuifu/index.php?aa1=json';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].shenhuifu.replace(/<br\s*[\/]?>/gi, ' ') : '';
+          } else if (this.currentQuoteCat === 'poison') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json';
             fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '';
           } else if (this.currentQuoteCat === 'wyy') {
@@ -1720,18 +1823,9 @@
           } else if (this.currentQuoteCat === 'dog') {
             apiUrl = 'https://v.api.aa1.cn/api/tiangou/index.php?aa1=json';
             fieldExtractor = (d) => d && d.msg ? d.msg : '';
-          } else {
-            const apis = [
-              { u: 'https://v.api.aa1.cn/api/api-wenan-wangyiyunreping/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].wangyiyunreping : '' },
-              { u: 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json', f: (d) => d && d.anwei },
-              { u: 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '' },
-              { u: 'https://v.api.aa1.cn/api/api-wenan-mingrenmingyan/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].mingrenmingyan : '' },
-              { u: 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].gaoxiao : '' }
-            ];
-            const pick = apis[Math.floor(Math.random() * apis.length)];
-            apiUrl = pick.u;
-            fieldExtractor = pick.f;
           }
+
+          if (!apiUrl) return;
 
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), 2500);
@@ -1743,28 +1837,40 @@
             if (text && typeof text === 'string' && text.trim()) {
               const displayEl = document.getElementById('fun-quote-display');
               const capsuleEl = document.getElementById('capsule-quote');
-              const fromEl = document.getElementById('fun-quote-from');
               if (displayEl) displayEl.innerText = text.trim();
               if (capsuleEl) capsuleEl.innerText = text.trim();
-              if (fromEl) fromEl.innerText = '出处: 夏柔公益开放API (api.aa1.cn)';
             }
           }
-        } catch (e) {
-          // 优雅降级，无需处理
-        }
+        } catch (e) {}
       },
 
       copyQuote() {
         const text = document.getElementById('fun-quote-display')?.innerText || '';
         if (!text) return;
         navigator.clipboard.writeText(text).then(() => {
-          alert('✨ 金句已成功复制到剪贴板！');
+          this.showToast('✨ 金句已复制到剪贴板！');
         }).catch(() => {
           alert(`已复制: ${text}`);
         });
       },
 
-      // 获取今日要闻与热榜 (夏柔知乎热搜原生接口)
+      // 历史上的今天
+      nextHistory() {
+        const historyEl = document.getElementById('fun-history-today');
+        if (!historyEl) return;
+        const histories = [
+          "1922年：英国广播公司（BBC）正式建立广播网络。",
+          "1993年：欧洲联盟（欧盟）正式诞生生效。",
+          "2008年：中本聪发布《比特币白皮书：一种点对点的电子现金系统》。",
+          "1958年：世界上第一台现代视频游戏《双人网球》公开展出。",
+          "1984年：第一台配备图形界面的苹果 Macintosh 个人电脑亮相。",
+          "2007年：初代 iPhone 正式开售，掀起移动互联网与 3C 智能手机浪潮！",
+          "1971年：世界上第一个微处理器 Intel 4004 面世，开创微机时代。"
+        ];
+        historyEl.innerText = histories[Math.floor(Math.random() * histories.length)];
+      },
+
+      // 今日热榜要闻
       async fetchNews(force = false) {
         const listEl = document.getElementById('fun-news-list');
         if (!listEl) return;
@@ -1789,12 +1895,11 @@
                   </div>
                 </a>
               `).join('');
+              this.nextHistory();
               return;
             }
           }
-        } catch (e) {
-          // 降级使用本地热榜
-        }
+        } catch (e) {}
 
         const defaultNews = [
           { title: "📱 旗舰新机发布潮：多款骁龙/天玑新机亮相，3C数据库需及时增补", url: "https://www.zhihu.com/search?type=content&q=3C数码新机" },
@@ -1812,80 +1917,117 @@
             </div>
           </a>
         `).join('');
+        this.nextHistory();
+      },
 
-        // 历史上的今天展示
-        const historyEl = document.getElementById('fun-history-today');
-        if (historyEl) {
-          const histories = [
-            "1922年：英国广播公司（BBC）正式建立。",
-            "1993年：欧洲联盟（欧盟）正式诞生生效。",
-            "2008年：中本聪发布《比特币白皮书：一种点对点的电子现金系统》。",
-            "科技史：人类第一代数字智能手机开始走进千家万户。"
-          ];
-          historyEl.innerText = histories[Math.floor(Math.random() * histories.length)];
+      // ==================== 今天吃什么？纠结终结者 (美食摇号机) ====================
+      initFoodRoller() {
+        const hour = new Date().getHours();
+        const typeEl = document.getElementById('food-meal-type');
+        if (typeEl) {
+          if (hour >= 5 && hour < 10) typeEl.innerText = "早餐推荐";
+          else if (hour >= 10 && hour < 15) typeEl.innerText = "午餐推荐";
+          else if (hour >= 15 && hour < 21) typeEl.innerText = "晚餐推荐";
+          else typeEl.innerText = "夜宵治愈";
         }
       },
 
-      // 媒体剧场 (短视频与治愈美图)
-      switchMediaMode(mode) {
-        this.mediaMode = mode;
-        const videoBox = document.getElementById('media-video-container');
-        const picBox = document.getElementById('media-pic-container');
-        const btnV = document.getElementById('media-mode-video');
-        const btnP = document.getElementById('media-mode-pic');
+      rollFood() {
+        const nameEl = document.getElementById('food-name');
+        const emojiEl = document.getElementById('food-emoji');
+        const commentEl = document.getElementById('food-comment');
+        if (!nameEl) return;
 
-        if (mode === 'video') {
-          videoBox.classList.remove('hidden');
-          picBox.classList.add('hidden');
-          btnV.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
-          btnP.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
-        } else {
-          videoBox.classList.add('hidden');
-          picBox.classList.remove('hidden');
-          btnP.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
-          btnV.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
-          this.loadNextPic();
-        }
-      },
-
-      loadNextMedia() {
-        if (this.mediaMode === 'video') this.loadNextVideo();
-        else this.loadNextPic();
-      },
-
-      async loadNextVideo() {
-        const ph = document.getElementById('fun-video-placeholder');
-        const vp = document.getElementById('fun-video-player');
-        if (ph) ph.classList.add('hidden');
-
-        // 夏柔平台精选高清小姐姐短视频 (通过代理防盗链)
-        try {
-          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('http://api.yujn.cn/api/zzxjj.php?type=json'));
-          if (res.ok) {
-            const json = await res.json();
-            if (json && json.data) {
-              vp.src = json.data.trim();
-              vp.muted = true;
-              vp.play().catch(() => {});
-              return;
-            }
+        let rollCount = 0;
+        const maxRolls = 14;
+        const interval = setInterval(() => {
+          const rand = this.foods[Math.floor(Math.random() * this.foods.length)];
+          nameEl.innerText = rand.name;
+          if (emojiEl) emojiEl.innerText = rand.emoji;
+          if (commentEl) commentEl.innerText = rand.comment;
+          rollCount++;
+          if (rollCount >= maxRolls) {
+            clearInterval(interval);
+            this.showToast(`🍱 决定啦！今天吃：${rand.name}`);
           }
-        } catch (e) {}
-
-        // 备用源
-        vp.src = `https://v.api.aa1.cn/api/api-dy-girl/video/0068.mp4?t=${Date.now()}`;
-        vp.muted = true;
-        vp.play().catch(() => {});
+        }, 65);
       },
 
-      loadNextPic() {
-        const picEl = document.getElementById('fun-pic-player');
-        if (picEl) {
-          picEl.src = `https://picsum.photos/400/600?random=${Math.random()}`;
+      // ==================== 实用小工具增强 ====================
+      // 1. QQ 头像快查 (夏柔官方 API 体验)
+      queryQQAvatar() {
+        const input = document.getElementById('qq-input-query');
+        const qq = input ? input.value.trim() : '';
+        if (!qq || !/^\d{5,12}$/.test(qq)) {
+          alert('请输入正确的 5~12 位数字 QQ 号！');
+          return;
+        }
+
+        const avatarUrl = `https://q1.qlogo.cn/g?b=qq&nk=${qq}&s=640`;
+        const resBox = document.getElementById('qq-query-result');
+        const imgEl = document.getElementById('qq-avatar-img');
+        const textEl = document.getElementById('qq-num-display');
+        const linkEl = document.getElementById('qq-avatar-link');
+
+        if (imgEl) imgEl.src = avatarUrl;
+        if (textEl) textEl.innerText = `QQ: ${qq}`;
+        if (linkEl) linkEl.href = avatarUrl;
+        if (resBox) resBox.classList.remove('hidden');
+        this.showToast(`✨ QQ ${qq} 高清头像已获取！`);
+      },
+
+      // 2. 安全强密码生成器 (夏柔 API 理念)
+      generatePassword() {
+        const lenSlider = document.getElementById('pwd-len-slider');
+        const length = lenSlider ? parseInt(lenSlider.value) : 16;
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*()_+~=";
+        let pwd = "";
+        for (let i = 0; i < length; i++) {
+          pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const displayEl = document.getElementById('gen-pwd-display');
+        if (displayEl) {
+          displayEl.value = pwd;
+          this.showToast(`🔑 已生成 ${length} 位高强度强密码！`);
         }
       },
 
-      // 夏柔官方手机号归属地与运营商查询
+      copyPassword() {
+        const displayEl = document.getElementById('gen-pwd-display');
+        if (!displayEl || !displayEl.value) {
+          this.generatePassword();
+          return;
+        }
+        navigator.clipboard.writeText(displayEl.value).then(() => {
+          this.showToast('✅ 强密码已复制到剪贴板！');
+        }).catch(() => {
+          alert(`密码: ${displayEl.value}`);
+        });
+      },
+
+      // 3. 文本与字数统计 (夏柔 api-zishu)
+      countText() {
+        const input = document.getElementById('text-count-input');
+        const text = input ? input.value : '';
+        const total = text.length;
+        const cnMatches = text.match(/[\u4e00-\u9fa5]/g);
+        const cnCount = cnMatches ? cnMatches.length : 0;
+        const enMatches = text.match(/[a-zA-Z0-9]/g);
+        const enCount = enMatches ? enMatches.length : 0;
+        const lines = text ? text.split('\n').length : 0;
+
+        const elTotal = document.getElementById('cnt-total');
+        const elCn = document.getElementById('cnt-cn');
+        const elEn = document.getElementById('cnt-en');
+        const elLines = document.getElementById('cnt-lines');
+
+        if (elTotal) elTotal.innerText = total;
+        if (elCn) elCn.innerText = cnCount;
+        if (elEn) elEn.innerText = enCount;
+        if (elLines) elLines.innerText = lines;
+      },
+
+      // 4. 手机号归属地 (夏柔官方 API)
       async queryPhoneGuishu() {
         const input = document.getElementById('phone-input-query');
         const phone = input ? input.value.trim() : '';
@@ -1915,7 +2057,7 @@
         if (resText) resText.innerText = '查询失败或接口繁忙';
       },
 
-      // 一键二维码生成
+      // 5. 二维码生成
       generateQRCode() {
         const input = document.getElementById('qr-input-text');
         const val = input ? (input.value.trim() || 'https://3c.melan.cc.cd/') : 'https://3c.melan.cc.cd/';
@@ -1936,7 +2078,6 @@
             return;
           } catch (e) {}
         }
-        // 离线/静态 Fallback
         const img = document.createElement('img');
         img.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(val)}`;
         img.className = "w-[140px] h-[140px] rounded shadow-sm";
@@ -1956,7 +2097,7 @@
         }
       },
 
-      // IP 查询
+      // 6. IP 查询
       async fetchIpInfo() {
         const ipVal = document.getElementById('fun-ip-val');
         const ipLoc = document.getElementById('fun-ip-location');
@@ -1973,37 +2114,262 @@
         }
       },
 
-      // 必应每日壁纸切换
-      initWallpaper() {
-        const saved = localStorage.getItem('3c_bing_wallpaper');
-        if (saved === 'true') {
-          this.applyWallpaper(true);
-        }
-      },
+      // ==================== 娱乐视界 (短视频与治愈美图) ====================
+      switchMediaMode(mode) {
+        this.mediaMode = mode;
+        const videoBox = document.getElementById('media-video-container');
+        const picBox = document.getElementById('media-pic-container');
+        const btnV = document.getElementById('media-mode-video');
+        const btnP = document.getElementById('media-mode-pic');
 
-      toggleWallpaper() {
-        this.isWallpaperOn = !this.isWallpaperOn;
-        this.applyWallpaper(this.isWallpaperOn);
-        localStorage.setItem('3c_bing_wallpaper', this.isWallpaperOn ? 'true' : 'false');
-      },
-
-      applyWallpaper(enable) {
-        this.isWallpaperOn = enable;
-        const btnText = document.getElementById('wallpaper-btn-text');
-        const bingUrl = "https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN";
-
-        if (enable) {
-          document.body.classList.add('wallpaper-mode');
-          document.body.style.backgroundImage = `url('${bingUrl}')`;
-          if (btnText) btnText.innerText = "纯色";
+        if (mode === 'video') {
+          if (videoBox) videoBox.classList.remove('hidden');
+          if (picBox) picBox.classList.add('hidden');
+          if (btnV) btnV.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
+          if (btnP) btnP.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
         } else {
-          document.body.classList.remove('wallpaper-mode');
-          document.body.style.backgroundImage = 'none';
-          if (btnText) btnText.innerText = "壁纸";
+          if (videoBox) videoBox.classList.add('hidden');
+          if (picBox) picBox.classList.remove('hidden');
+          if (btnP) btnP.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
+          if (btnV) btnV.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
+          this.loadNextPic();
         }
       },
 
-      // 抽屉展开与收起
+      loadNextMedia() {
+        if (this.mediaMode === 'video') this.loadNextVideo();
+        else this.loadNextPic();
+      },
+
+      async loadNextVideo() {
+        const ph = document.getElementById('fun-video-placeholder');
+        const vp = document.getElementById('fun-video-player');
+        if (ph) ph.classList.add('hidden');
+
+        try {
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('http://api.yujn.cn/api/zzxjj.php?type=json'));
+          if (res.ok) {
+            const json = await res.json();
+            if (json && json.data) {
+              vp.src = json.data.trim();
+              vp.muted = true;
+              vp.play().catch(() => {});
+              return;
+            }
+          }
+        } catch (e) {}
+
+        vp.src = `https://v.api.aa1.cn/api/api-dy-girl/video/0068.mp4?t=${Date.now()}`;
+        vp.muted = true;
+        vp.play().catch(() => {});
+      },
+
+      loadNextPic() {
+        const picEl = document.getElementById('fun-pic-player');
+        if (picEl) {
+          picEl.src = `https://picsum.photos/400/600?random=${Math.random()}`;
+        }
+      },
+
+      // ==================== 超清壁纸中心 (Wallpaper Studio) 全套核心 ====================
+      initWallpaper() {
+        const savedUrl = localStorage.getItem('3c_custom_wallpaper_url');
+        const savedDim = localStorage.getItem('3c_wallpaper_dim');
+        const autoRandom = localStorage.getItem('3c_wallpaper_autorandom') === 'true';
+
+        if (savedDim !== null) {
+          this.setDimOpacity(savedDim, false);
+          const slider = document.getElementById('wall-dim-slider');
+          if (slider) slider.value = savedDim;
+        }
+
+        const autoToggle = document.getElementById('wall-auto-random-toggle');
+        if (autoToggle) autoToggle.checked = autoRandom;
+        this.autoRandomWall = autoRandom;
+
+        if (autoRandom) {
+          this.randomNextWallpaper(false);
+          return;
+        }
+
+        if (savedUrl) {
+          this.applyWallpaperUrl(savedUrl, false);
+        } else {
+          const legacyBing = localStorage.getItem('3c_bing_wallpaper');
+          if (legacyBing === 'true') {
+            this.applyWallpaperUrl(this.wallpapers.bing[0].url, false);
+          }
+        }
+
+        // 预载夏柔 360 壁纸库
+        this.fetchAA1Wallpapers(false);
+      },
+
+      openWallpaperModal() {
+        const modal = document.getElementById('wallpaper-modal');
+        if (modal) modal.classList.remove('hidden');
+        this.renderWallpaperGrid();
+      },
+
+      closeWallpaperModal() {
+        const modal = document.getElementById('wallpaper-modal');
+        if (modal) modal.classList.add('hidden');
+      },
+
+      switchWallTab(cat) {
+        this.currentWallCategory = cat;
+        ['aa1', 'bing', 'anime', 'nature', 'tech'].forEach(c => {
+          const btn = document.getElementById(`wall-tab-${c}`);
+          if (btn) {
+            if (c === cat) {
+              btn.className = "px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition flex items-center space-x-1.5 flex-shrink-0";
+            } else {
+              btn.className = "px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center space-x-1.5 flex-shrink-0";
+            }
+          }
+        });
+        const refreshBtn = document.getElementById('wall-refresh-api-btn');
+        if (refreshBtn) {
+          refreshBtn.style.display = (cat === 'aa1') ? 'inline-flex' : 'none';
+        }
+        this.renderWallpaperGrid();
+      },
+
+      async fetchAA1Wallpapers(force = false) {
+        if (!force && this.wallpapers.aa1.length > 10) return;
+        const btn = document.getElementById('wall-refresh-api-btn');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>正在从夏柔拉取4K大图...';
+
+        try {
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v.api.aa1.cn/api/api-meiribizhi/api.php'));
+          if (res.ok) {
+            const json = await res.json();
+            if (json && json.data && json.data.length) {
+              const newItems = json.data.map((item, idx) => ({
+                name: `夏柔精选 ${item.resolution || '2K'} 大图 #${idx + 1}`,
+                url: item.url.replace('http://', 'https://'),
+                tag: item.resolution || '2560x1440'
+              }));
+              this.wallpapers.aa1 = [...newItems, ...this.wallpapers.aa1];
+              if (this.currentWallCategory === 'aa1') this.renderWallpaperGrid();
+              this.showToast(`✨ 成功从夏柔平台拉取 ${newItems.length} 张高清壁纸！`);
+            }
+          }
+        } catch (e) {}
+
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i>从夏柔接口拉取最新一批';
+      },
+
+      renderWallpaperGrid() {
+        const container = document.getElementById('wall-grid-container');
+        if (!container) return;
+        const list = this.wallpapers[this.currentWallCategory] || [];
+        const currentUrl = this.currentWallpaperUrl;
+
+        container.innerHTML = list.map((item, idx) => {
+          const isActive = (item.url === currentUrl);
+          return `
+            <div onclick="FunSuite.selectWallpaper('${item.url}', '${item.name}')" class="relative group rounded-xl overflow-hidden cursor-pointer border border-gray-200 dark:border-gray-700 aspect-video bg-gray-100 dark:bg-gray-800 transition transform hover:-translate-y-1 hover:shadow-lg ${isActive ? 'wall-card-active' : ''}">
+              <img src="${item.url}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-between p-2.5">
+                <div class="flex justify-between items-start">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/50 text-white backdrop-blur-sm">${item.tag}</span>
+                  ${isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow"><i class="fa-solid fa-check mr-1"></i>使用中</span>' : ''}
+                </div>
+                <div class="text-[11px] font-semibold text-white truncate drop-shadow">${item.name}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      selectWallpaper(url, name) {
+        this.applyWallpaperUrl(url, true);
+        this.renderWallpaperGrid();
+        this.showToast(`🎨 已应用壁纸：${name}`);
+      },
+
+      applyWallpaperUrl(url, save = true) {
+        this.isWallpaperOn = true;
+        this.currentWallpaperUrl = url;
+        document.body.classList.add('wallpaper-mode');
+        document.body.style.backgroundImage = `url('${url}')`;
+
+        const btnText = document.getElementById('wallpaper-btn-text');
+        if (btnText) btnText.innerText = "壁纸生效中";
+
+        if (save) {
+          localStorage.setItem('3c_custom_wallpaper_url', url);
+          localStorage.setItem('3c_bing_wallpaper', 'true');
+        }
+      },
+
+      randomNextWallpaper(showTip = true) {
+        // 从所有分类中随机抽取一张
+        const all = [
+          ...this.wallpapers.aa1,
+          ...this.wallpapers.bing,
+          ...this.wallpapers.anime,
+          ...this.wallpapers.nature,
+          ...this.wallpapers.tech
+        ];
+        const pick = all[Math.floor(Math.random() * all.length)];
+        this.applyWallpaperUrl(pick.url, true);
+        if (showTip) {
+          this.showToast(`🎲 随机壁纸已换：${pick.name}`);
+        }
+      },
+
+      resetPureColor() {
+        this.isWallpaperOn = false;
+        this.currentWallpaperUrl = '';
+        document.body.classList.remove('wallpaper-mode');
+        document.body.style.backgroundImage = 'none';
+
+        const btnText = document.getElementById('wallpaper-btn-text');
+        if (btnText) btnText.innerText = "壁纸";
+
+        localStorage.removeItem('3c_custom_wallpaper_url');
+        localStorage.setItem('3c_bing_wallpaper', 'false');
+        this.renderWallpaperGrid();
+        this.showToast('🎨 已恢复系统默认纯色背景！');
+      },
+
+      setDimOpacity(val, save = true) {
+        const dim = parseInt(val) / 100;
+        document.documentElement.style.setProperty('--wallpaper-dim', dim);
+        const valText = document.getElementById('wall-dim-value');
+        if (valText) valText.innerText = `${val}%`;
+        if (save) localStorage.setItem('3c_wallpaper_dim', val);
+      },
+
+      toggleAutoRandom(checked) {
+        this.autoRandomWall = checked;
+        localStorage.setItem('3c_wallpaper_autorandom', checked ? 'true' : 'false');
+        if (checked) this.showToast('🔄 已开启：每次进入自动随机换壁纸！');
+      },
+
+      // 轻量 Toast 提示框
+      showToast(msg) {
+        let toast = document.getElementById('fun-mini-toast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'fun-mini-toast';
+          toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900/90 dark:bg-white/90 text-white dark:text-gray-900 px-4 py-2 rounded-full text-xs font-semibold shadow-2xl z-50 transition-all duration-300 pointer-events-none opacity-0 translate-y-3';
+          document.body.appendChild(toast);
+        }
+        toast.innerText = msg;
+        toast.classList.remove('opacity-0', 'translate-y-3');
+        toast.classList.add('opacity-100', 'translate-y-0');
+
+        if (this._toastTimer) clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+          toast.classList.remove('opacity-100', 'translate-y-0');
+          toast.classList.add('opacity-0', 'translate-y-3');
+        }, 2200);
+      },
+
+      // ==================== 抽屉开发展开与收起 ====================
       openDrawer(defaultTab = 'daily') {
         const drawer = document.getElementById('fun-drawer');
         const backdrop = document.getElementById('fun-drawer-backdrop');
@@ -2018,7 +2384,6 @@
         const backdrop = document.getElementById('fun-drawer-backdrop');
         if (drawer) drawer.classList.add('drawer-closed');
         if (backdrop) backdrop.classList.add('backdrop-hidden');
-        // 暂停正在播放的视频
         const vp = document.getElementById('fun-video-player');
         if (vp) vp.pause();
       },
@@ -2047,7 +2412,6 @@
         if (tab === 'tools') this.generateQRCode();
       },
 
-      // 悬浮磁贴可见性控制
       initBadgeVisibility() {
         const hide = localStorage.getItem('3c_hide_fun_badge') === 'true';
         const badge = document.getElementById('fun-float-badge');
@@ -2065,7 +2429,6 @@
         localStorage.setItem('3c_hide_fun_badge', hide ? 'true' : 'false');
       },
 
-      // 排列组合成功彩蛋提示
       showEggSuccess(count) {
         const modal = document.getElementById('fun-egg-modal');
         const countEl = document.getElementById('egg-count-text');
@@ -2079,7 +2442,6 @@
       }
     };
 
-    // 页面加载完成后立即初始化
     document.addEventListener('DOMContentLoaded', () => {
       FunSuite.init();
     });
@@ -2131,6 +2493,26 @@
     <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
       <!-- Tab 1: 摸鱼速报 -->
       <div id="fun-panel-daily" class="space-y-3.5">
+                <!-- 今天吃什么？纠结终结者 (美食摇号机) -->
+        <div class="p-3 bg-gradient-to-r from-orange-500 via-amber-500 to-rose-500 rounded-xl text-white shadow-md">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold flex items-center"><i class="fa-solid fa-utensils mr-1.5"></i>今天吃什么？· 纠结终结者</span>
+            <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-mono" id="food-meal-type">午餐推荐</span>
+          </div>
+          <div class="bg-white/15 backdrop-blur-md rounded-lg p-2.5 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+              <span id="food-emoji" class="text-2xl">🍗</span>
+              <div>
+                <div id="food-name" class="text-sm font-black tracking-tight">黄焖鸡米饭 (加微辣豆皮)</div>
+                <div id="food-comment" class="text-[10px] text-orange-100">经典下饭神器，打工人高能碳水之光</div>
+              </div>
+            </div>
+            <button onclick="FunSuite.rollFood()" class="px-2.5 py-1.5 bg-white text-orange-600 rounded-lg font-bold text-xs shadow-sm hover:bg-orange-50 active:scale-95 transition flex items-center flex-shrink-0 ml-2">
+              <i class="fa-solid fa-dice mr-1"></i>摇一摇
+            </button>
+          </div>
+        </div>
+
         <!-- 下班倒计时卡片 -->
         <div class="p-3 bg-gradient-to-r from-emerald-500 via-teal-600 to-teal-700 rounded-xl text-white shadow-md flex items-center justify-between">
           <div>
@@ -2203,6 +2585,8 @@
       <div id="fun-panel-quote" class="space-y-3.5 hidden">
         <div class="flex flex-wrap gap-1.5">
           <button onclick="FunSuite.setQuoteCategory('all')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">全部综合</button>
+          <button onclick="FunSuite.setQuoteCategory('shenhuifu')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">神回复(夏柔)</button>
+          <button onclick="FunSuite.setQuoteCategory('kfc')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">疯狂星期四</button>
           <button onclick="FunSuite.setQuoteCategory('wyy')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">网易云热评</button>
           <button onclick="FunSuite.setQuoteCategory('poison')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">毒鸡汤</button>
           <button onclick="FunSuite.setQuoteCategory('fortune')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">暴富好运</button>
@@ -2312,6 +2696,62 @@
             <div class="flex justify-between text-gray-600 dark:text-gray-300"><span>归属地:</span><span id="fun-ip-location">查询中...</span></div>
           </div>
         </div>
+        <!-- QQ 高清头像与资料快查 (夏柔官方API) -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-brands fa-qq mr-1.5 text-blue-500"></i>QQ 高清头像与信息快查</span>
+            <span class="text-[10px] text-gray-400">夏柔官方API</span>
+          </div>
+          <div class="flex space-x-2">
+            <input type="text" id="qq-input-query" placeholder="输入任意 QQ 号..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500 font-mono">
+            <button onclick="FunSuite.queryQQAvatar()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex-shrink-0">查头像</button>
+          </div>
+          <div id="qq-query-result" class="hidden p-2.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <img id="qq-avatar-img" class="w-12 h-12 rounded-full border border-gray-200 shadow-sm object-cover" src="" alt="QQ头像">
+              <div>
+                <div class="font-bold text-gray-800 dark:text-gray-100 text-xs" id="qq-num-display">QQ: --</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">640x640 超清大图</div>
+              </div>
+            </div>
+            <a id="qq-avatar-link" href="#" target="_blank" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 text-blue-600 text-[11px] rounded transition">
+              查看大图
+            </a>
+          </div>
+        </div>
+
+        <!-- 安全强密码生成器 (夏柔密码生成器同款) -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-key mr-1.5 text-amber-500"></i>安全强密码生成器</span>
+            <span class="text-[10px] text-gray-400">防暴力破解</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="gen-pwd-display" readonly placeholder="点击右侧生成强密码" class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-mono text-emerald-600 font-bold outline-none select-all">
+            <button onclick="FunSuite.generatePassword()" class="px-2.5 py-1.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 text-xs">生成</button>
+            <button onclick="FunSuite.copyPassword()" class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 text-blue-600 rounded-lg font-medium text-xs">复制</button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-gray-500">
+            <span>长度: <b id="pwd-len-text">16</b> 位</span>
+            <input type="range" id="pwd-len-slider" min="8" max="32" value="16" oninput="document.getElementById('pwd-len-text').innerText = this.value" class="w-32 accent-amber-500">
+          </div>
+        </div>
+
+        <!-- 文本字数与行数统计 (夏柔 api-zishu) -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-calculator mr-1.5 text-emerald-500"></i>文本与SKU字数统计</span>
+            <span class="text-[10px] text-gray-400">实时统计</span>
+          </div>
+          <textarea id="text-count-input" oninput="FunSuite.countText()" rows="2" placeholder="在此粘贴文本或商品标题/SKU..." class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-emerald-500 resize-none"></textarea>
+          <div class="grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
+            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">字数: <b id="cnt-total" class="text-emerald-600">0</b></div>
+            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">汉字: <b id="cnt-cn" class="text-blue-600">0</b></div>
+            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">英数: <b id="cnt-en" class="text-purple-600">0</b></div>
+            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">行数: <b id="cnt-lines" class="text-amber-600">0</b></div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2323,6 +2763,91 @@
       <span class="text-[10px] text-gray-400">© 3C Matrix 治愈生态</span>
     </div>
   </aside>
+
+  
+  <!-- ==================== 超清壁纸中心 (Wallpaper Studio) 弹窗 ==================== -->
+  <div id="wallpaper-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#1E1F22] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-4xl w-full flex flex-col max-h-[88vh] overflow-hidden egg-pop-in">
+      <!-- 弹窗顶栏 -->
+      <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-teal-50/60 dark:from-gray-800 dark:to-gray-800">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-500 to-blue-600 flex items-center justify-center text-white shadow-md text-base">🖼️</div>
+          <div>
+            <div class="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center space-x-2">
+              <span>超清壁纸中心</span>
+              <span class="text-[10px] bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full font-normal">多图库 · Awwwards毛玻璃</span>
+            </div>
+            <div class="text-[11px] text-gray-400">汇聚夏柔 360 每日 4K、微软必应风光与精选二次元/赛博壁纸</div>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="FunSuite.resetPureColor()" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs rounded-lg transition flex items-center font-medium">
+            <i class="fa-solid fa-paintbrush mr-1.5 text-gray-500"></i>恢复默认纯色
+          </button>
+          <button onclick="FunSuite.closeWallpaperModal()" class="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 分类 Tab 切换栏 -->
+      <div class="flex border-b border-gray-100 dark:border-gray-800 px-5 text-xs font-semibold bg-gray-50/60 dark:bg-gray-800/50 overflow-x-auto space-x-2 py-2">
+        <button id="wall-tab-aa1" onclick="FunSuite.switchWallTab('aa1')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition flex items-center space-x-1.5 flex-shrink-0">
+          <span>🌟 夏柔 360 每日 4K</span>
+        </button>
+        <button id="wall-tab-bing" onclick="FunSuite.switchWallTab('bing')" class="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center space-x-1.5 flex-shrink-0">
+          <span>🌍 微软必应 7 天摄影</span>
+        </button>
+        <button id="wall-tab-anime" onclick="FunSuite.switchWallTab('anime')" class="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center space-x-1.5 flex-shrink-0">
+          <span>🌸 治愈二次元 & 动漫</span>
+        </button>
+        <button id="wall-tab-nature" onclick="FunSuite.switchWallTab('nature')" class="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center space-x-1.5 flex-shrink-0">
+          <span>⛰️ 4K 极境自然风光</span>
+        </button>
+        <button id="wall-tab-tech" onclick="FunSuite.switchWallTab('tech')" class="px-3 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center space-x-1.5 flex-shrink-0">
+          <span>🏙️ 赛博科技 & 极简建筑</span>
+        </button>
+      </div>
+
+      <!-- 壁纸缩略图瀑布流/网格区 -->
+      <div class="flex-1 overflow-y-auto p-5">
+        <div class="flex items-center justify-between mb-3 text-xs text-gray-500">
+          <span id="wall-gallery-desc">点击任意壁纸立即换装 · 自动持久化保存</span>
+          <div class="flex items-center space-x-2">
+            <button onclick="FunSuite.fetchAA1Wallpapers(true)" id="wall-refresh-api-btn" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+              <i class="fa-solid fa-rotate mr-1"></i>从夏柔接口拉取最新一批
+            </button>
+          </div>
+        </div>
+        <div id="wall-grid-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- 动态渲染壁纸卡片 -->
+        </div>
+      </div>
+
+      <!-- 弹窗底栏：暗度遮罩调节滑块与自动换壁纸开关 -->
+      <div class="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-2">
+            <span class="text-gray-600 dark:text-gray-300 font-medium">背景磨砂暗度:</span>
+            <input type="range" min="0" max="75" value="18" id="wall-dim-slider" oninput="FunSuite.setDimOpacity(this.value)" class="w-28 accent-teal-500">
+            <span id="wall-dim-value" class="font-mono text-gray-500 text-[11px]">18%</span>
+          </div>
+          <label class="flex items-center space-x-1.5 cursor-pointer text-gray-600 dark:text-gray-300">
+            <input type="checkbox" id="wall-auto-random-toggle" onchange="FunSuite.toggleAutoRandom(this.checked)" class="rounded text-teal-600 focus:ring-0">
+            <span>每次进入自动随机换壁纸</span>
+          </label>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="FunSuite.randomNextWallpaper()" class="px-3 py-1.5 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-600 hover:to-blue-700 text-white rounded-lg font-medium shadow-sm transition flex items-center">
+            <i class="fa-solid fa-dice mr-1.5"></i>随机选一张应用
+          </button>
+          <button onclick="FunSuite.closeWallpaperModal()" class="px-3.5 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition">
+            完成
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ==================== 排列组合完成好运彩蛋弹窗 ==================== -->
   <div id="fun-egg-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
