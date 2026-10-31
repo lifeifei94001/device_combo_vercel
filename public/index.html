@@ -1618,20 +1618,48 @@
 
       async fetchExternalQuote() {
         try {
-          // 通过后端代理或直接公共一言
+          let apiUrl = '';
+          let fieldExtractor = (d) => '';
+
+          if (this.currentQuoteCat === 'poison') {
+            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '';
+          } else if (this.currentQuoteCat === 'work') {
+            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].gaoxiao : '';
+          } else if (this.currentQuoteCat === 'fortune') {
+            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json';
+            fieldExtractor = (d) => d && d.anwei ? d.anwei : '';
+          } else if (this.currentQuoteCat === 'dog') {
+            apiUrl = 'https://v.api.aa1.cn/api/tiangou/index.php?aa1=json';
+            fieldExtractor = (d) => d && d.msg ? d.msg : '';
+          } else {
+            // all 模式，随机选一个夏柔接口
+            const apis = [
+              { u: 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json', f: (d) => d && d.anwei },
+              { u: 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '' },
+              { u: 'https://v.api.aa1.cn/api/api-wenan-mingrenmingyan/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].mingrenmingyan : '' },
+              { u: 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].gaoxiao : '' }
+            ];
+            const pick = apis[Math.floor(Math.random() * apis.length)];
+            apiUrl = pick.u;
+            fieldExtractor = pick.f;
+          }
+
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 2000);
-          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v1.hitokoto.cn/?encode=json'), { signal: controller.signal });
+          const timer = setTimeout(() => controller.abort(), 2500);
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(apiUrl), { signal: controller.signal });
           clearTimeout(timer);
           if (res.ok) {
             const data = await res.json();
-            if (data && data.hitokoto) {
+            const text = fieldExtractor(data);
+            if (text && typeof text === 'string' && text.trim()) {
               const displayEl = document.getElementById('fun-quote-display');
               const capsuleEl = document.getElementById('capsule-quote');
               const fromEl = document.getElementById('fun-quote-from');
-              if (displayEl) displayEl.innerText = data.hitokoto;
-              if (capsuleEl) capsuleEl.innerText = data.hitokoto;
-              if (fromEl) fromEl.innerText = `出处: ${data.from || '公共一言'}`;
+              if (displayEl) displayEl.innerText = text.trim();
+              if (capsuleEl) capsuleEl.innerText = text.trim();
+              if (fromEl) fromEl.innerText = '出处: 夏柔公益开放API (api.aa1.cn)';
             }
           }
         } catch (e) {
@@ -1649,10 +1677,37 @@
         });
       },
 
-      // 获取今日要闻与热榜
+      // 获取今日要闻与热榜 (夏柔知乎热搜原生接口)
       async fetchNews(force = false) {
         const listEl = document.getElementById('fun-news-list');
         if (!listEl) return;
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v.api.aa1.cn/api/zhihu-news/index.php?aa1=renxi'), { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            const data = await res.json();
+            const newsArr = (data && data.news && data.news.length) ? data.news : (data && data.top_stories ? data.top_stories : []);
+            if (newsArr && newsArr.length) {
+              listEl.innerHTML = newsArr.map((n, idx) => `
+                <a href="${n.share_url || n.url}" target="_blank" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
+                  <div class="flex items-start space-x-2">
+                    <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
+                    <div class="flex-1">
+                      <div class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition font-medium">${n.title}</div>
+                      ${n.hint ? `<div class="text-[10px] text-gray-400 mt-0.5">${n.hint}</div>` : ''}
+                    </div>
+                  </div>
+                </a>
+              `).join('');
+              return;
+            }
+          }
+        } catch (e) {
+          // 降级使用本地热榜
+        }
 
         const defaultNews = [
           { title: "📱 旗舰新机发布潮：多款骁龙/天玑新机亮相，3C数据库需及时增补", url: "https://www.zhihu.com/search?type=content&q=3C数码新机" },
