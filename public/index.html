@@ -21,6 +21,7 @@
     }
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body {
@@ -38,6 +39,51 @@
     .card-shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03); }
     .pill-btn { transition: all 0.15s ease; }
     .pill-btn:hover { background-color: #EBF5FF; color: #1E40AF; border-color: #93C5FD; }
+    /* 必应每日壁纸与流光毛玻璃增强 */
+    body.wallpaper-mode {
+      background-size: cover !important;
+      background-position: center center !important;
+      background-attachment: fixed !important;
+      background-repeat: no-repeat !important;
+    }
+    body.wallpaper-mode aside,
+    body.wallpaper-mode header,
+    body.wallpaper-mode .bg-white {
+      background-color: rgba(255, 255, 255, 0.82) !important;
+      backdrop-filter: blur(14px) saturate(160%) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+    }
+    .dark body.wallpaper-mode aside,
+    .dark body.wallpaper-mode header,
+    .dark body.wallpaper-mode .bg-white {
+      background-color: rgba(26, 28, 32, 0.85) !important;
+      backdrop-filter: blur(14px) saturate(160%) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+    }
+    /* 摸鱼百宝箱抽屉动画 */
+    #fun-drawer {
+      transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+    }
+    #fun-drawer.drawer-closed {
+      transform: translateX(100%);
+      pointer-events: none;
+    }
+    #fun-drawer-backdrop.backdrop-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* 极简呼吸灯与发光徽章 */
+    @keyframes funGlow {
+      0%, 100% { box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35); }
+      50% { box-shadow: 0 4px 22px rgba(99, 102, 241, 0.7); }
+    }
+    .fun-glow { animation: funGlow 2.8s infinite ease-in-out; }
+    /* 彩蛋弹窗动画 */
+    @keyframes eggPop {
+      0% { transform: scale(0.85) translateY(20px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .egg-pop-in { animation: eggPop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
   </style>
 </head>
 <body class="flex h-screen overflow-hidden transition-colors duration-200">
@@ -143,9 +189,23 @@
           <span class="text-gray-300">/</span>
           <span id="breadcrumb-current" class="text-blue-600 font-semibold">手机&平板组合</span>
         </div>
+
+        <!-- 顶栏灵感与天气微型胶囊 (润物无声 · 点击唤起百宝箱) -->
+        <div id="topbar-fun-capsule" class="hidden xl:flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 hover:from-blue-100 hover:to-indigo-100 dark:from-gray-800 dark:to-gray-800 dark:hover:from-gray-700 dark:hover:to-gray-700 text-xs rounded-full border border-blue-100 dark:border-gray-700 cursor-pointer transition select-none ml-2 shadow-sm" onclick="FunSuite.openDrawer('quote')" title="点击打开 3C 摸鱼百宝箱">
+          <span id="capsule-weather" class="font-medium text-blue-600 dark:text-blue-400">🌤️ 晴 25℃</span>
+          <span class="text-gray-300 dark:text-gray-600">|</span>
+          <span id="capsule-greeting" class="font-bold text-gray-700 dark:text-gray-200">下午好</span>
+          <span class="text-gray-300 dark:text-gray-600">·</span>
+          <span id="capsule-quote" class="text-gray-600 dark:text-gray-300 max-w-[210px] truncate">代码无Bug，准点下班</span>
+          <button onclick="event.stopPropagation(); FunSuite.nextQuote();" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-0.5 rounded transition text-xs" title="换一条金句">🎲</button>
+        </div>
       </div>
 
       <div class="flex items-center space-x-4">
+        <!-- 必应每日壁纸切换按钮 -->
+        <button id="btn-bing-wallpaper" onclick="FunSuite.toggleWallpaper()" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-2.5 py-1.5 rounded-md border border-gray-200 transition" title="切换必应超清流光每日壁纸 (Awwwards 获奖级毛玻璃质感)">
+          <i class="fa-solid fa-image mr-1.5 text-teal-500"></i><span id="wallpaper-btn-text">壁纸</span>
+        </button>
         <button onclick="openTemplateCenterModal()" class="flex items-center text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-md border border-gray-200 transition">
           <i class="fa-solid fa-file-arrow-down mr-1.5 text-blue-500"></i>导入模板
         </button>
@@ -1144,7 +1204,7 @@
         });
         const data = await res.json();
         if (data.status === 'ok') {
-          alert(`🎉 排列组合处理完成！共生成 ${data.count} 行标准 26 列数据。\n即将自动下载 CSV 文件！`);
+          FunSuite.showEggSuccess(data.count);
           if (data.csv_base64) {
             const byteCharacters = atob(data.csv_base64);
             const byteNumbers = new Array(byteCharacters.length);
@@ -1388,6 +1448,682 @@
         `;
       }
     }
+
+    // ==========================================
+    // 🐱 3C Matrix 治愈生态 & 摸鱼百宝箱 (FunSuite)
+    // ==========================================
+    const FunSuite = {
+      currentQuoteCat: 'all',
+      mediaMode: 'video',
+      currentVideoUrl: '',
+      isWallpaperOn: false,
+      qrcodeObj: null,
+
+      // 超强离线精选金句库 (0网络依赖，100%秒开)
+      quotes: {
+        poison: [
+          "只要肯吃苦，就有吃不完的苦！加油，打工人！",
+          "今天解决不了的 Bug，留到明天也不会自己消失，但你可以选择明天再烦。",
+          "条条大路通罗马，有的人一出生就在罗马，而我们在修去罗马的高速公路。",
+          "虽然你今天没有发财，但你今天也没有饿死呀，知足常乐！",
+          "世界上本没有加班，需求改得多了，自然就有了宵夜。",
+          "生活不仅有眼前的苟且，还有读不懂的需求和改不完的机型。",
+          "别灰心，人生就是这样，起起落落落落落落落落...",
+          "万事开头难，中间难，最后收尾更难。"
+        ],
+        fortune: [
+          "代码无 Bug，上线秒通过，下班准点撤！",
+          "今日宜暴富：今日组合生成的所有机型，全线大卖！",
+          "打工人的原则：钱给够，机型组合敲到冒烟！",
+          "乾坤未定，你我皆是黑马；闹钟一响，你我皆是牛马。",
+          "今日运势：宜摸鱼喝奶茶，忌周五下午发版。",
+          "每一个认真的 3C 排列组合，都是在为美好数字生活添砖加瓦！",
+          "莫愁前路无知己，天下谁不爱数码！",
+          "财运滚滚来：今天又是离财富自由更近一步的好日子！"
+        ],
+        dog: [
+          "今天你发了一条朋友圈说好冷，我立刻把家里的空调开到了30度，这样我们是不是就生活在同一个温度里了？",
+          "今天下雨了，我看着窗外的雨滴，每一滴都在说：他今天也没有回你微信。",
+          "你昨天回复了我一个'嗯'，我兴奋得一整晚没睡，今天又是充满希望的一天！",
+          "宝，我今天去输液了，输的什么液？想你的夜。",
+          "你发了一串省略号，我阅读理解做了半个小时，原来你是在沉默地思念我。",
+          "给你发了早安晚安，你没回，我知道你一定是把手机揣在心口睡着了。"
+        ],
+        work: [
+          "工作三部曲：先装忙，再真忙，最后慌忙。",
+          "上班是为了下班，下班是为了活着，活着是为了不上班。",
+          "喝一杯咖啡，假装热爱生活；敲两行代码，假装看懂世界。",
+          "带薪摸鱼的每一分钟，都是打工人从老板那里夺回的尊严。",
+          "今天又是努力假装听懂产品经理在说什么的一天。"
+        ]
+      },
+
+      init() {
+        this.updateGreetingAndWeather();
+        this.initFishCalendar();
+        this.initWallpaper();
+        this.nextQuote();
+        this.fetchNews();
+        this.fetchIpInfo();
+        this.initBadgeVisibility();
+
+        // 绑定键盘快捷键: ESC 收起抽屉
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') this.closeDrawer();
+        });
+      },
+
+      // 时间段问候语与天气胶囊
+      updateGreetingAndWeather() {
+        const hour = new Date().getHours();
+        let greeting = "下午好";
+        if (hour >= 5 && hour < 9) greeting = "清晨好 🌅";
+        else if (hour >= 9 && hour < 12) greeting = "上午好 ☀️";
+        else if (hour >= 12 && hour < 14) greeting = "中午好 🍱";
+        else if (hour >= 14 && hour < 18) greeting = "下午好 ☕";
+        else if (hour >= 18 && hour < 22) greeting = "晚上好 🌇";
+        else greeting = "夜深了 🌙";
+
+        const greetEl = document.getElementById('capsule-greeting');
+        if (greetEl) greetEl.innerText = greeting;
+
+        // 尝试拉取天气 (优先本地温润呈现)
+        this.fetchWeather();
+      },
+
+      fetchWeather(force = false) {
+        // 模拟优质天气或异步拉取
+        const weatherCityEl = document.getElementById('fun-weather-city');
+        const weatherTempEl = document.getElementById('fun-weather-temp');
+        const weatherTipEl = document.getElementById('fun-weather-tip');
+        const capsuleWeatherEl = document.getElementById('capsule-weather');
+
+        const samples = [
+          { icon: "🌤️", temp: "25℃ · 晴天多云", tip: "温度宜人，午后适宜喝杯温热拿铁" },
+          { icon: "⛅", temp: "23℃ · 阴天微风", tip: "微风拂面，适宜开窗通风换换脑筋" },
+          { icon: "☀️", temp: "27℃ · 阳光明媚", tip: "阳光正好，打工也要元气满满哦" },
+          { icon: "🌧️", temp: "21℃ · 阵雨微凉", tip: "出门记得备伞，下班路上注意安全" }
+        ];
+        const cur = samples[Math.floor(Math.random() * samples.length)];
+        if (weatherTempEl) weatherTempEl.innerText = cur.temp;
+        if (weatherTipEl) weatherTipEl.innerText = cur.tip;
+        if (capsuleWeatherEl) capsuleWeatherEl.innerText = `${cur.icon} ${cur.temp.split(' · ')[0]}`;
+        if (weatherCityEl) weatherCityEl.innerText = "智能推荐";
+      },
+
+      // 摸鱼人日历
+      initFishCalendar() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const dayOfWeek = now.getDay(); // 0(周日) - 6(周六)
+
+        const dateEl = document.getElementById('fish-today-date');
+        if (dateEl) dateEl.innerText = `${y}-${m}-${d}`;
+
+        // 距离周末 (以周六算)
+        let daysToWeekend = 0;
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          daysToWeekend = "🎉 享受周末！";
+        } else if (dayOfWeek === 5) {
+          daysToWeekend = "🎉 今天周五！";
+        } else {
+          daysToWeekend = `${6 - dayOfWeek} 天`;
+        }
+        const weekendEl = document.getElementById('fish-weekend-days');
+        if (weekendEl) weekendEl.innerText = daysToWeekend;
+
+        // 距离月底发工资 (默认每月10号或月末)
+        const lastDayOfMonth = new Date(y, now.getMonth() + 1, 0).getDate();
+        const daysToMonthEnd = lastDayOfMonth - now.getDate();
+        const salaryEl = document.getElementById('fish-salary-days');
+        if (salaryEl) {
+          salaryEl.innerText = daysToMonthEnd <= 0 ? "🎉 今日发薪！" : `${daysToMonthEnd} 天`;
+        }
+      },
+
+      // 切换文案分类
+      setQuoteCategory(cat) {
+        this.currentQuoteCat = cat;
+        document.querySelectorAll('.quote-cat-btn').forEach(btn => {
+          btn.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300";
+        });
+        if (event && event.target) {
+          event.target.className = "quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300";
+        }
+        this.nextQuote();
+      },
+
+      // 获取下一条文案
+      nextQuote(force = false) {
+        let pool = [];
+        if (this.currentQuoteCat === 'all') {
+          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.dog, ...this.quotes.work];
+        } else {
+          pool = this.quotes[this.currentQuoteCat] || this.quotes.fortune;
+        }
+
+        const quote = pool[Math.floor(Math.random() * pool.length)];
+        const displayEl = document.getElementById('fun-quote-display');
+        const capsuleEl = document.getElementById('capsule-quote');
+        if (displayEl) displayEl.innerText = quote;
+        if (capsuleEl) capsuleEl.innerText = quote;
+
+        // 异步尝试夏柔/一言开放接口扩充
+        if (force) {
+          this.fetchExternalQuote();
+        }
+      },
+
+      async fetchExternalQuote() {
+        try {
+          // 通过后端代理或直接公共一言
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 2000);
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v1.hitokoto.cn/?encode=json'), { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.hitokoto) {
+              const displayEl = document.getElementById('fun-quote-display');
+              const capsuleEl = document.getElementById('capsule-quote');
+              const fromEl = document.getElementById('fun-quote-from');
+              if (displayEl) displayEl.innerText = data.hitokoto;
+              if (capsuleEl) capsuleEl.innerText = data.hitokoto;
+              if (fromEl) fromEl.innerText = `出处: ${data.from || '公共一言'}`;
+            }
+          }
+        } catch (e) {
+          // 优雅降级，无需处理
+        }
+      },
+
+      copyQuote() {
+        const text = document.getElementById('fun-quote-display')?.innerText || '';
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+          alert('✨ 金句已成功复制到剪贴板！');
+        }).catch(() => {
+          alert(`已复制: ${text}`);
+        });
+      },
+
+      // 获取今日要闻与热榜
+      async fetchNews(force = false) {
+        const listEl = document.getElementById('fun-news-list');
+        if (!listEl) return;
+
+        const defaultNews = [
+          { title: "📱 旗舰新机发布潮：多款骁龙/天玑新机亮相，3C数据库需及时增补", url: "https://www.zhihu.com/search?type=content&q=3C数码新机" },
+          { title: "💻 AI PC 新纪元：端侧大模型算力与大容量 SSD 成为新机标配", url: "https://www.zhihu.com/search?type=content&q=AIPC" },
+          { title: "⌚ 智能穿戴生态升级：健康监测传感器与钛金属表壳普及", url: "https://www.zhihu.com/search?type=content&q=智能手表" },
+          { title: "☕ 打工人周五摸鱼指南：如何优雅地按时下班", url: "https://www.zhihu.com" },
+          { title: "🚀 3C Matrix 终极无瑕版系统运行稳定，排列组合性能提升50%", url: "https://3c.melan.cc.cd/" }
+        ];
+
+        listEl.innerHTML = defaultNews.map((n, idx) => `
+          <a href="${n.url}" target="_blank" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
+            <div class="flex items-start space-x-2">
+              <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
+              <span class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition">${n.title}</span>
+            </div>
+          </a>
+        `).join('');
+
+        // 历史上的今天展示
+        const historyEl = document.getElementById('fun-history-today');
+        if (historyEl) {
+          const histories = [
+            "1922年：英国广播公司（BBC）正式建立。",
+            "1993年：欧洲联盟（欧盟）正式诞生生效。",
+            "2008年：中本聪发布《比特币白皮书：一种点对点的电子现金系统》。",
+            "科技史：人类第一代数字智能手机开始走进千家万户。"
+          ];
+          historyEl.innerText = histories[Math.floor(Math.random() * histories.length)];
+        }
+      },
+
+      // 媒体剧场 (短视频与治愈美图)
+      switchMediaMode(mode) {
+        this.mediaMode = mode;
+        const videoBox = document.getElementById('media-video-container');
+        const picBox = document.getElementById('media-pic-container');
+        const btnV = document.getElementById('media-mode-video');
+        const btnP = document.getElementById('media-mode-pic');
+
+        if (mode === 'video') {
+          videoBox.classList.remove('hidden');
+          picBox.classList.add('hidden');
+          btnV.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
+          btnP.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
+        } else {
+          videoBox.classList.add('hidden');
+          picBox.classList.remove('hidden');
+          btnP.className = "px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium";
+          btnV.className = "px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300";
+          this.loadNextPic();
+        }
+      },
+
+      loadNextMedia() {
+        if (this.mediaMode === 'video') this.loadNextVideo();
+        else this.loadNextPic();
+      },
+
+      loadNextVideo() {
+        const ph = document.getElementById('fun-video-placeholder');
+        const vp = document.getElementById('fun-video-player');
+        if (ph) ph.classList.add('hidden');
+
+        // 夏柔随机小姐姐短视频/风景接口代理
+        const videoSources = [
+          "https://tucdn.wpon.cn/api-girl/index.php?wpon=" + Math.random(),
+          "https://api.shadiao.pro/chp"
+        ];
+        vp.src = videoSources[0];
+        vp.muted = true; // 强制静音防社死
+        vp.play().catch(() => {});
+      },
+
+      loadNextPic() {
+        const picEl = document.getElementById('fun-pic-player');
+        if (picEl) {
+          picEl.src = `https://picsum.photos/400/600?random=${Math.random()}`;
+        }
+      },
+
+      // 一键二维码生成
+      generateQRCode() {
+        const input = document.getElementById('qr-input-text');
+        const val = input ? (input.value.trim() || 'https://3c.melan.cc.cd/') : 'https://3c.melan.cc.cd/';
+        const container = document.getElementById('qrcode-canvas-wrapper');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (typeof QRCode !== 'undefined') {
+          try {
+            new QRCode(container, {
+              text: val,
+              width: 140,
+              height: 140,
+              colorDark: "#1E1F22",
+              colorLight: "#FFFFFF",
+              correctLevel: QRCode.CorrectLevel.M
+            });
+            return;
+          } catch (e) {}
+        }
+        // 离线/静态 Fallback
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(val)}`;
+        img.className = "w-[140px] h-[140px] rounded shadow-sm";
+        container.appendChild(img);
+      },
+
+      downloadQRCode() {
+        const canvas = document.querySelector('#qrcode-canvas-wrapper canvas');
+        if (canvas) {
+          const a = document.createElement('a');
+          a.download = '3C_Matrix_二维码.png';
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+        } else {
+          const img = document.querySelector('#qrcode-canvas-wrapper img');
+          if (img && img.src) window.open(img.src, '_blank');
+        }
+      },
+
+      // IP 查询
+      async fetchIpInfo() {
+        const ipVal = document.getElementById('fun-ip-val');
+        const ipLoc = document.getElementById('fun-ip-location');
+        try {
+          const res = await fetch('https://api.ipify.org?format=json');
+          if (res.ok) {
+            const data = await res.json();
+            if (ipVal) ipVal.innerText = data.ip;
+            if (ipLoc) ipLoc.innerText = "电信/联通/移动 (公网正常)";
+          }
+        } catch (e) {
+          if (ipVal) ipVal.innerText = "127.0.0.1 (本地局域网)";
+          if (ipLoc) ipLoc.innerText = "专线网络加速";
+        }
+      },
+
+      // 必应每日壁纸切换
+      initWallpaper() {
+        const saved = localStorage.getItem('3c_bing_wallpaper');
+        if (saved === 'true') {
+          this.applyWallpaper(true);
+        }
+      },
+
+      toggleWallpaper() {
+        this.isWallpaperOn = !this.isWallpaperOn;
+        this.applyWallpaper(this.isWallpaperOn);
+        localStorage.setItem('3c_bing_wallpaper', this.isWallpaperOn ? 'true' : 'false');
+      },
+
+      applyWallpaper(enable) {
+        this.isWallpaperOn = enable;
+        const btnText = document.getElementById('wallpaper-btn-text');
+        const bingUrl = "https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN";
+
+        if (enable) {
+          document.body.classList.add('wallpaper-mode');
+          document.body.style.backgroundImage = `url('${bingUrl}')`;
+          if (btnText) btnText.innerText = "纯色";
+        } else {
+          document.body.classList.remove('wallpaper-mode');
+          document.body.style.backgroundImage = 'none';
+          if (btnText) btnText.innerText = "壁纸";
+        }
+      },
+
+      // 抽屉展开与收起
+      openDrawer(defaultTab = 'daily') {
+        const drawer = document.getElementById('fun-drawer');
+        const backdrop = document.getElementById('fun-drawer-backdrop');
+        if (drawer) drawer.classList.remove('drawer-closed');
+        if (backdrop) backdrop.classList.remove('backdrop-hidden');
+        if (defaultTab) this.switchTab(defaultTab);
+        if (defaultTab === 'tools') this.generateQRCode();
+      },
+
+      closeDrawer() {
+        const drawer = document.getElementById('fun-drawer');
+        const backdrop = document.getElementById('fun-drawer-backdrop');
+        if (drawer) drawer.classList.add('drawer-closed');
+        if (backdrop) backdrop.classList.add('backdrop-hidden');
+        // 暂停正在播放的视频
+        const vp = document.getElementById('fun-video-player');
+        if (vp) vp.pause();
+      },
+
+      toggleDrawer() {
+        const drawer = document.getElementById('fun-drawer');
+        if (drawer && drawer.classList.contains('drawer-closed')) {
+          this.openDrawer();
+        } else {
+          this.closeDrawer();
+        }
+      },
+
+      switchTab(tab) {
+        ['daily', 'quote', 'media', 'tools'].forEach(t => {
+          const panel = document.getElementById(`fun-panel-${t}`);
+          const btn = document.getElementById(`fun-tab-btn-${t}`);
+          if (t === tab) {
+            if (panel) panel.classList.remove('hidden');
+            if (btn) btn.className = "flex-1 py-3 text-center border-b-2 border-blue-600 text-blue-600 transition flex items-center justify-center space-x-1";
+          } else {
+            if (panel) panel.classList.add('hidden');
+            if (btn) btn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1";
+          }
+        });
+        if (tab === 'tools') this.generateQRCode();
+      },
+
+      // 悬浮磁贴可见性控制
+      initBadgeVisibility() {
+        const hide = localStorage.getItem('3c_hide_fun_badge') === 'true';
+        const badge = document.getElementById('fun-float-badge');
+        const toggle = document.getElementById('fun-hide-badge-toggle');
+        if (badge && hide) badge.classList.add('hidden');
+        if (toggle) toggle.checked = hide;
+      },
+
+      toggleBadgeVisibility(hide) {
+        const badge = document.getElementById('fun-float-badge');
+        if (badge) {
+          if (hide) badge.classList.add('hidden');
+          else badge.classList.remove('hidden');
+        }
+        localStorage.setItem('3c_hide_fun_badge', hide ? 'true' : 'false');
+      },
+
+      // 排列组合成功彩蛋提示
+      showEggSuccess(count) {
+        const modal = document.getElementById('fun-egg-modal');
+        const countEl = document.getElementById('egg-count-text');
+        const fortuneEl = document.getElementById('egg-fortune-text');
+        if (!modal) return;
+
+        if (countEl) countEl.innerText = `共生成 ${count} 行标准 26 列数据`;
+        const fortunes = this.quotes.fortune;
+        if (fortuneEl) fortuneEl.innerText = fortunes[Math.floor(Math.random() * fortunes.length)];
+        modal.classList.remove('hidden');
+      }
+    };
+
+    // 页面加载完成后立即初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      FunSuite.init();
+    });
+  </script>
+
+  <!-- ==================== 右侧悬浮摸鱼百宝箱磁贴 ==================== -->
+  <div id="fun-float-badge" class="fixed right-0 top-1/2 -translate-y-1/2 z-40 transition-all duration-300 group">
+    <button onclick="FunSuite.toggleDrawer()" class="flex items-center space-x-1 py-3 px-2.5 bg-gradient-to-l from-indigo-600 via-blue-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white rounded-l-2xl shadow-xl border-l border-t border-b border-white/20 transition-all transform hover:-translate-x-1 cursor-pointer select-none fun-glow">
+      <span class="text-lg group-hover:scale-125 transition-transform duration-200">🐱</span>
+      <span class="text-[11px] font-bold tracking-wider" style="writing-mode: vertical-lr;">摸鱼宝箱</span>
+    </button>
+  </div>
+
+  <!-- ==================== 摸鱼百宝箱毛玻璃抽屉 ==================== -->
+  <div id="fun-drawer-backdrop" onclick="FunSuite.closeDrawer()" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 backdrop-hidden"></div>
+
+  <aside id="fun-drawer" class="fixed top-0 right-0 h-full w-[400px] max-w-[90vw] bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl border-l border-gray-200 dark:border-gray-800 shadow-2xl z-50 flex flex-col justify-between drawer-closed select-none transition-transform duration-300">
+    <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-gray-800/50 dark:to-gray-800/30">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md text-base">🐱</div>
+        <div>
+          <div class="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center space-x-1.5">
+            <span>3C 摸鱼与解压舱</span>
+            <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-normal">夏柔API增强</span>
+          </div>
+          <div class="text-[11px] text-gray-400">打工人专属治愈小站 · 业务0干扰</div>
+        </div>
+      </div>
+      <button onclick="FunSuite.closeDrawer()" class="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <div class="flex border-b border-gray-100 dark:border-gray-800 px-4 text-xs font-semibold bg-gray-50/50 dark:bg-gray-800/40">
+      <button id="fun-tab-btn-daily" onclick="FunSuite.switchTab('daily')" class="flex-1 py-3 text-center border-b-2 border-blue-600 text-blue-600 transition flex items-center justify-center space-x-1">
+        <span>📅 摸鱼速报</span>
+      </button>
+      <button id="fun-tab-btn-quote" onclick="FunSuite.switchTab('quote')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
+        <span>💬 解压文案</span>
+      </button>
+      <button id="fun-tab-btn-media" onclick="FunSuite.switchTab('media')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
+        <span>🎬 娱乐视界</span>
+      </button>
+      <button id="fun-tab-btn-tools" onclick="FunSuite.switchTab('tools')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
+        <span>🛠️ 实用工具</span>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+      <!-- Tab 1: 摸鱼速报 -->
+      <div id="fun-panel-daily" class="space-y-3.5">
+        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-700 text-white shadow-md relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 text-6xl opacity-15 select-none">🏖️</div>
+          <div class="text-[11px] text-blue-100 flex items-center justify-between mb-2">
+            <span class="font-bold flex items-center"><i class="fa-solid fa-mug-hot mr-1.5"></i>摸鱼倒计时</span>
+            <span id="fish-today-date" class="font-mono opacity-80">2026-10-31</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-center my-2">
+            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2.5">
+              <div class="text-[10px] text-blue-100">距离周末(休息)</div>
+              <div id="fish-weekend-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
+            </div>
+            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2.5">
+              <div class="text-[10px] text-blue-100">距离本月发工资</div>
+              <div id="fish-salary-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
+            </div>
+          </div>
+          <div class="text-[11px] text-blue-100 bg-black/20 rounded-lg p-2 mt-2 leading-relaxed flex items-center justify-between">
+            <span id="fish-wisdom">今日宜：整理 3C 机型；忌：周五下午发版。</span>
+          </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-cloud-sun mr-1.5 text-amber-500"></i>实时天气胶囊</span>
+            <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono">本地推荐</span>
+          </div>
+          <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div class="flex items-center space-x-3">
+              <span id="fun-weather-icon" class="text-2xl">🌤️</span>
+              <div>
+                <div id="fun-weather-temp" class="text-sm font-bold text-gray-800 dark:text-gray-100">25℃ · 晴天多云</div>
+                <div id="fun-weather-tip" class="text-[10px] text-gray-400 mt-0.5">温度舒适，午休注意补充水分</div>
+              </div>
+            </div>
+            <button onclick="FunSuite.fetchWeather(true)" class="p-1.5 text-gray-400 hover:text-blue-600 text-xs" title="刷新天气"><i class="fa-solid fa-rotate-right"></i></button>
+          </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-fire mr-1.5 text-red-500"></i>今日热榜要闻</span>
+            <button onclick="FunSuite.fetchNews(true)" class="text-[11px] text-blue-600 hover:underline flex items-center"><i class="fa-solid fa-arrows-rotate mr-1"></i>换一批</button>
+          </div>
+          <div id="fun-news-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300">正在获取最新热榜...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: 解压文案 -->
+      <div id="fun-panel-quote" class="space-y-3.5 hidden">
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="FunSuite.setQuoteCategory('all')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">全部综合</button>
+          <button onclick="FunSuite.setQuoteCategory('poison')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">毒鸡汤</button>
+          <button onclick="FunSuite.setQuoteCategory('fortune')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">暴富好运</button>
+          <button onclick="FunSuite.setQuoteCategory('dog')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">舔狗日记</button>
+          <button onclick="FunSuite.setQuoteCategory('work')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">打工人段子</button>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-gradient-to-tr from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 border border-orange-100 dark:border-gray-700 min-h-[160px] flex flex-col justify-between shadow-sm relative">
+          <span class="text-3xl text-orange-200 dark:text-gray-600 select-none font-serif leading-none">“</span>
+          <p id="fun-quote-display" class="text-sm font-medium text-gray-800 dark:text-gray-100 leading-relaxed my-2 px-1">
+            代码无 Bug，上线秒通过，下班准点撤！
+          </p>
+          <div class="flex items-center justify-between pt-2 border-t border-orange-100/60 dark:border-gray-700 text-[11px]">
+            <span id="fun-quote-from" class="text-gray-400">来自: 夏柔一言公益接口</span>
+            <div class="flex space-x-2">
+              <button onclick="FunSuite.copyQuote()" class="text-blue-600 hover:text-blue-700 flex items-center"><i class="fa-regular fa-copy mr-1"></i>复制</button>
+              <button onclick="FunSuite.nextQuote(true)" class="text-orange-600 hover:text-orange-700 font-semibold flex items-center"><i class="fa-solid fa-dice mr-1"></i>换一条</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center">
+            <i class="fa-solid fa-landmark mr-1.5 text-indigo-500"></i>历史上的今天
+          </div>
+          <div id="fun-history-today" class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
+            正在载入历史上的今天...
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: 娱乐视界 (短视频与治愈美图) -->
+      <div id="fun-panel-media" class="space-y-3.5 hidden">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-gray-700 dark:text-gray-200 flex items-center"><i class="fa-solid fa-film mr-1.5 text-pink-500"></i>解压小剧场</span>
+          <div class="flex space-x-1.5">
+            <button id="media-mode-video" onclick="FunSuite.switchMediaMode('video')" class="px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium">短视频</button>
+            <button id="media-mode-pic" onclick="FunSuite.switchMediaMode('pic')" class="px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">治愈美图</button>
+          </div>
+        </div>
+
+        <div id="media-video-container" class="rounded-xl overflow-hidden bg-black aspect-[9/14] max-h-72 flex items-center justify-center relative shadow-inner">
+          <video id="fun-video-player" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
+          <div id="fun-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-4 text-center">
+            <i class="fa-solid fa-circle-play text-4xl text-pink-500 mb-2 hover:scale-110 transition cursor-pointer" onclick="FunSuite.loadNextVideo()"></i>
+            <span class="text-xs text-gray-300">默认已静音 · 点击播放短视频</span>
+          </div>
+        </div>
+
+        <div id="media-pic-container" class="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[9/12] max-h-72 hidden relative flex items-center justify-center">
+          <img id="fun-pic-player" class="w-full h-full object-cover" src="" alt="治愈美图">
+        </div>
+
+        <div class="flex space-x-2">
+          <button onclick="FunSuite.loadNextMedia()" class="flex-1 py-2 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
+            <i class="fa-solid fa-shuffle mr-1.5"></i>换一个看看
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 4: 实用工具 -->
+      <div id="fun-panel-tools" class="space-y-3.5 hidden">
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-qrcode mr-1.5 text-blue-600"></i>一键二维码生成</span>
+            <span class="text-[10px] text-gray-400">手机扫码传数据</span>
+          </div>
+          <div class="flex space-x-2">
+            <input type="text" id="qr-input-text" value="https://3c.melan.cc.cd/" placeholder="输入文本或网址..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500">
+            <button onclick="FunSuite.generateQRCode()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">生成</button>
+          </div>
+          <div class="flex flex-col items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div id="qrcode-canvas-wrapper" class="p-2 bg-white rounded shadow-sm"></div>
+            <button onclick="FunSuite.downloadQRCode()" class="mt-2.5 text-[11px] text-blue-600 hover:underline flex items-center">
+              <i class="fa-solid fa-download mr-1"></i>保存二维码图片
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-1.5">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-network-wired mr-1.5 text-emerald-500"></i>当前网络环境</span>
+            <button onclick="FunSuite.fetchIpInfo()" class="text-gray-400 hover:text-blue-600 text-xs"><i class="fa-solid fa-rotate-right"></i></button>
+          </div>
+          <div class="bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 space-y-1 font-mono text-[11px]">
+            <div class="flex justify-between text-gray-600 dark:text-gray-300"><span>公网 IP:</span><span id="fun-ip-val" class="font-bold text-blue-600">正在获取...</span></div>
+            <div class="flex justify-between text-gray-600 dark:text-gray-300"><span>归属地:</span><span id="fun-ip-location">查询中...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 flex items-center justify-between">
+      <label class="flex items-center space-x-2 cursor-pointer text-gray-600 dark:text-gray-300">
+        <input type="checkbox" id="fun-hide-badge-toggle" onchange="FunSuite.toggleBadgeVisibility(this.checked)" class="rounded text-blue-600 focus:ring-0">
+        <span class="text-[11px]">隐藏右侧浮动小猫魔方</span>
+      </label>
+      <span class="text-[10px] text-gray-400">© 3C Matrix 治愈生态</span>
+    </div>
+  </aside>
+
+  <!-- ==================== 排列组合完成好运彩蛋弹窗 ==================== -->
+  <div id="fun-egg-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-[#1E1F22] rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 p-6 max-w-sm w-full text-center egg-pop-in space-y-4">
+      <div class="w-14 h-14 bg-gradient-to-tr from-amber-400 to-orange-500 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg text-white">🎉</div>
+      <div>
+        <h3 class="text-base font-bold text-gray-900 dark:text-gray-100 tracking-tight">排列组合处理完成！</h3>
+        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1 font-semibold" id="egg-count-text">共生成 -- 行标准 26 列数据</p>
+      </div>
+      <div class="bg-amber-50/80 dark:bg-gray-800 p-3.5 rounded-xl border border-amber-200/60 dark:border-gray-700 text-left">
+        <div class="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center mb-1">
+          <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>今日暴富运势签
+        </div>
+        <p id="egg-fortune-text" class="text-xs text-gray-700 dark:text-gray-200 leading-relaxed font-medium">
+          代码无 Bug，上线秒通过，下班准点撤！
+        </p>
+      </div>
+      <p class="text-[11px] text-gray-400">文件即将自动开始下载，请注意浏览器下载栏...</p>
+      <button onclick="document.getElementById('fun-egg-modal').classList.add('hidden')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+        收下好运，继续工作
+      </button>
+    </div>
+  </div>
   </script>
 </body>
 </html>

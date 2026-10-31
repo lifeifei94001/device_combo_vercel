@@ -143,5 +143,38 @@ def clear_records_compat():
     return jsonify({"status": "ok"})
 
 
+@app.route('/api/fun_proxy', methods=['GET'])
+def fun_proxy():
+    """安全代理外部公开 API，解决 HTTPS 混杂内容与 CORS 跨域限制"""
+    target_url = request.args.get('url', '')
+    if not target_url:
+        return jsonify({"status": "error", "msg": "Missing url parameter"}), 400
+
+    if not (target_url.startswith('http://') or target_url.startswith('https://')):
+        return jsonify({"status": "error", "msg": "Invalid url scheme"}), 400
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            content_type = resp.headers.get('Content-Type', 'application/json; charset=utf-8')
+            data = resp.read()
+            response = app.response_class(
+                response=data,
+                status=resp.status,
+                mimetype=content_type
+            )
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 502
+
+
 if __name__ == '__main__':
     app.run(port=8765, debug=True)
