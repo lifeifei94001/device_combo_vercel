@@ -373,7 +373,7 @@
               <div class="grid grid-cols-12 gap-3 items-center">
                 <div class="col-span-3">
                   <label class="block text-xs font-medium text-gray-700 mb-1">内存配置 (空格分隔 / 1TB单位)</label>
-                  <input type="text" id="a-memory" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="a-memory" onblur="this.value = cleanMemoryString(this.value)" onchange="this.value = cleanMemoryString(this.value)" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                 </div>
                 <div class="col-span-3">
                   <label class="block text-xs font-medium text-gray-700 mb-1">购买渠道 (可检索/默认国行)</label>
@@ -772,6 +772,21 @@
   </div>
 
   <script>
+    // 内存输入智能规范化 (GB自动去除B，1TB除外保留B)
+    function cleanMemoryString(val) {
+      if (!val || typeof val !== 'string') return '';
+      let s = val.trim();
+      if (!s) return '';
+      // 1. 规范化 TB：将 1t, 1T, 1tb 等转为 1TB (TB 必须严格保留 B)
+      s = s.replace(/(\d+)\s*T(?![A-Za-z])/gi, '$1TB');
+      s = s.replace(/(\d+)\s*TB(?![A-Za-z])/gi, '$1TB');
+      // 2. 将所有的 GB / gb / Gb 自动去除 B，转换为 G
+      s = s.replace(/(\d+(?:\.\d+)?)\s*GB(?![A-Za-z])/gi, '$1G');
+      // 3. 规范化小写 g -> G
+      s = s.replace(/(\d+(?:\.\d+)?)\s*g(?![A-Za-z])/g, '$1G');
+      return s;
+    }
+
     let currentModule = 'android';
 
     function escapeHtml(str) {
@@ -983,7 +998,7 @@
             <td class="p-3 font-mono">${escapeHtml(rec['品牌编号'] || '-')}</td>
             <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
             <td class="p-3 font-mono">${escapeHtml(rec['机型编号'] || '-')}</td>
-            <td class="p-3 text-blue-600 font-medium">${escapeHtml(rec['内存'] || '-')}</td>
+            <td class="p-3 text-blue-600 font-medium">${escapeHtml(cleanMemoryString(rec['内存']) || '-')}</td>
             <td class="p-3">${escapeHtml(rec['购买渠道'] || '-')}</td>
             <td class="p-3">${escapeHtml(rec['网络制式'] || '-')}</td>
             <td class="p-3 text-purple-600">${escapeHtml(rec['颜色'] || '-')}</td>
@@ -1037,9 +1052,11 @@
         const bId = document.getElementById('a-brand-id').value.trim();
         const mId = document.getElementById('a-model-id').value.trim();
         if (!bName && !bId && !mId) { alert('请至少输入品牌或机型编号！'); return; }
+        const cleanedMem = cleanMemoryString(document.getElementById('a-memory').value.trim());
+        document.getElementById('a-memory').value = cleanedMem;
         rec = {
           '品牌编号': bId, '品牌名称': bName, '机型编号': mId,
-          '内存': document.getElementById('a-memory').value.trim(),
+          '内存': cleanedMem,
           '购买渠道': document.getElementById('a-channel').value.trim(),
           '网络制式': document.getElementById('a-network').value.trim(),
           '颜色': document.getElementById('a-color').value.trim(),
@@ -1217,6 +1234,11 @@
     }
 
     async function generateAndExport() {
+      if (currentModule === 'android') {
+        currentRecords.forEach(r => {
+          if (r['内存']) r['内存'] = cleanMemoryString(r['内存']);
+        });
+      }
       if (!currentRecords.length) {
         alert('待处理机型列表为空，请先录入或导入机型数据！');
         return;

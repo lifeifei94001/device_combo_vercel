@@ -37,6 +37,27 @@ def clean_id(val: Any) -> str:
     return s
 
 
+def clean_memory_string(val: Any) -> str:
+    """
+    内存智能规范化：
+    - GB / gb 自动去除 B，转换为 G (如 12GB -> 12G, 256GB -> 256G)
+    - 1TB / 2TB / 4TB 等 TB 单位严格保留 B，1T 自动规范为 1TB
+    """
+    if not val:
+        return ''
+    s = str(val).strip()
+    if not s or s.lower() == 'nan':
+        return ''
+    # 1. 规范化 TB：将 1t, 1T, 1tb 等转为 1TB (严格保留 B)
+    s = re.sub(r'(\d+)\s*T(?![A-Za-z])', r'\1TB', s, flags=re.IGNORECASE)
+    s = re.sub(r'(\d+)\s*TB(?![A-Za-z])', r'\1TB', s, flags=re.IGNORECASE)
+    # 2. 将 GB, gb, Gb 转为 G (自动去除 B)
+    s = re.sub(r'(\d+(?:\.\d+)?)\s*GB(?![A-Za-z])', r'\1G', s, flags=re.IGNORECASE)
+    # 3. 将小写 g 转为大写 G
+    s = re.sub(r'(\d+(?:\.\d+)?)\s*g(?![A-Za-z])', r'\1G', s)
+    return s
+
+
 def split_tolerant_space(val: Any) -> List[str]:
     s = str(val).strip()
     if not s or s.lower() == 'nan':
@@ -149,7 +170,7 @@ def generate_android_combinations(records: List[Dict[str, Any]]) -> Tuple[LightD
         if min_price.lower() == 'nan':
             min_price = ''
 
-        dim_mem = split_tolerant_space(row.get('内存', ''))
+        dim_mem = split_tolerant_space(clean_memory_string(row.get('内存', '')))
         dim_chan = split_tolerant_space(row.get('购买渠道', ''))
         dim_net = split_tolerant_space(row.get('网络制式', ''))
         dim_color = split_tolerant_color(row.get('颜色', ''))
@@ -177,16 +198,10 @@ def generate_android_combinations(records: List[Dict[str, Any]]) -> Tuple[LightD
             ram, rom = "", ""
             if "+" in c_mem:
                 m_parts = c_mem.split('+')
-                ram, rom = m_parts[0].strip(), m_parts[1].strip()
-                # 规范化 1T -> 1TB
-                if rom.upper() == '1T':
-                    rom = '1TB'
-                elif rom.upper() == '2T':
-                    rom = '2TB'
-                elif rom.upper() == '4T':
-                    rom = '4TB'
+                ram = clean_memory_string(m_parts[0].strip())
+                rom = clean_memory_string(m_parts[1].strip())
             else:
-                ram = c_mem.strip()
+                ram = clean_memory_string(c_mem.strip())
 
             if "其他" in c_chan:
                 sub_name = "其他"
