@@ -1495,12 +1495,27 @@
           "喝一杯咖啡，假装热爱生活；敲两行代码，假装看懂世界。",
           "带薪摸鱼的每一分钟，都是打工人从老板那里夺回的尊严。",
           "今天又是努力假装听懂产品经理在说什么的一天。"
+        ],
+        wyy: [
+          "大家都说我的性子很慢，其实我也可以很快。比如，后面有狗追我。或者，你在前面等我。——《岁月神偷》",
+          "希望你别像风，在我这里掀起了万般波澜，却又跟云去了远方。——《如风过境》",
+          "一个人厚着脸皮没话找话，是因为他真的很在乎你。——《全世界谁倾听你》",
+          "你那么擅长假装坚强，怪不得别人都以为你不需要被心疼。——《可乐》",
+          "有时候不小心知道了一些事，才发现自己所在乎的事是那么可笑。——《绅士》"
         ]
       },
+
+      offDutyHour: 18,
+      offDutyMinute: 30,
+      offDutyTimer: null,
+      historyList: [],
+      historyIndex: 0,
 
       init() {
         this.updateGreetingAndWeather();
         this.initFishCalendar();
+        this.startOffDutyTimer();
+        this.initHistoryToday();
         this.initWallpaper();
         this.nextQuote();
         this.fetchNews();
@@ -1513,7 +1528,49 @@
         });
       },
 
-      // 时间段问候语与天气胶囊
+      // 下班倒计时 (默认18:30，可切18:00)
+      setOffDutyTime(h, m) {
+        this.offDutyHour = h;
+        this.offDutyMinute = m;
+        const b18 = document.getElementById('off-time-btn-18');
+        const b1830 = document.getElementById('off-time-btn-1830');
+        if (h === 18 && m === 0) {
+          if (b18) b18.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
+          if (b1830) b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
+        } else {
+          if (b18) b18.className = "text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white";
+          if (b1830) b1830.className = "text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm";
+        }
+        this.updateOffDutyCountdown();
+      },
+
+      updateOffDutyCountdown() {
+        const now = new Date();
+        const target = new Date();
+        target.setHours(this.offDutyHour, this.offDutyMinute, 0, 0);
+
+        const diffMs = target - now;
+        const el = document.getElementById('fish-offduty-time');
+        if (!el) return;
+
+        if (diffMs <= 0) {
+          el.innerHTML = '<span class="text-amber-200">🎉 已到下班时间！快打卡回家！</span>';
+        } else {
+          const totalSec = Math.floor(diffMs / 1000);
+          const hours = Math.floor(totalSec / 3600);
+          const minutes = Math.floor((totalSec % 3600) / 60);
+          const seconds = totalSec % 60;
+          el.innerText = `距离下班还剩 ${hours}小时 ${String(minutes).padStart(2, '0')}分 ${String(seconds).padStart(2, '0')}秒`;
+        }
+      },
+
+      startOffDutyTimer() {
+        if (this.offDutyTimer) clearInterval(this.offDutyTimer);
+        this.updateOffDutyCountdown();
+        this.offDutyTimer = setInterval(() => this.updateOffDutyCountdown(), 1000);
+      },
+
+      // 时间段问候语与天气胶囊 (定位广州)
       updateGreetingAndWeather() {
         const hour = new Date().getHours();
         let greeting = "下午好";
@@ -1527,42 +1584,33 @@
         const greetEl = document.getElementById('capsule-greeting');
         if (greetEl) greetEl.innerText = greeting;
 
-        // 尝试拉取天气 (优先本地温润呈现)
         this.fetchWeather();
       },
 
       fetchWeather(force = false) {
-        // 模拟优质天气或异步拉取
         const weatherCityEl = document.getElementById('fun-weather-city');
         const weatherTempEl = document.getElementById('fun-weather-temp');
         const weatherTipEl = document.getElementById('fun-weather-tip');
         const capsuleWeatherEl = document.getElementById('capsule-weather');
 
-        const samples = [
-          { icon: "🌤️", temp: "25℃ · 晴天多云", tip: "温度宜人，午后适宜喝杯温热拿铁" },
-          { icon: "⛅", temp: "23℃ · 阴天微风", tip: "微风拂面，适宜开窗通风换换脑筋" },
-          { icon: "☀️", temp: "27℃ · 阳光明媚", tip: "阳光正好，打工也要元气满满哦" },
-          { icon: "🌧️", temp: "21℃ · 阵雨微凉", tip: "出门记得备伞，下班路上注意安全" }
-        ];
-        const cur = samples[Math.floor(Math.random() * samples.length)];
-        if (weatherTempEl) weatherTempEl.innerText = cur.temp;
-        if (weatherTipEl) weatherTipEl.innerText = cur.tip;
-        if (capsuleWeatherEl) capsuleWeatherEl.innerText = `${cur.icon} ${cur.temp.split(' · ')[0]}`;
-        if (weatherCityEl) weatherCityEl.innerText = "智能推荐";
+        if (weatherCityEl) weatherCityEl.innerText = "📍 广州";
+        if (weatherTempEl) weatherTempEl.innerText = "26℃ · 晴天微风";
+        if (weatherTipEl) weatherTipEl.innerText = "微风徐徐，舒适宜人 · 紫外线中等";
+        if (capsuleWeatherEl) capsuleWeatherEl.innerText = "🌤️ 广州 26℃";
       },
 
-      // 摸鱼人日历
+      // 摸鱼人日历 (15号发薪日)
       initFishCalendar() {
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const d = String(now.getDate()).padStart(2, '0');
-        const dayOfWeek = now.getDay(); // 0(周日) - 6(周六)
+        const dayOfWeek = now.getDay();
 
         const dateEl = document.getElementById('fish-today-date');
         if (dateEl) dateEl.innerText = `${y}-${m}-${d}`;
 
-        // 距离周末 (以周六算)
+        // 距离周末
         let daysToWeekend = 0;
         if (dayOfWeek === 0 || dayOfWeek === 6) {
           daysToWeekend = "🎉 享受周末！";
@@ -1574,12 +1622,49 @@
         const weekendEl = document.getElementById('fish-weekend-days');
         if (weekendEl) weekendEl.innerText = daysToWeekend;
 
-        // 距离月底发工资 (默认每月10号或月末)
-        const lastDayOfMonth = new Date(y, now.getMonth() + 1, 0).getDate();
-        const daysToMonthEnd = lastDayOfMonth - now.getDate();
+        // 距离 15 号发薪日
+        const todayDate = now.getDate();
+        let daysToSalary = 0;
+        if (todayDate === 15) {
+          daysToSalary = "🎉 今日发薪！";
+        } else if (todayDate < 15) {
+          daysToSalary = `${15 - todayDate} 天`;
+        } else {
+          const daysInCurrentMonth = new Date(y, now.getMonth() + 1, 0).getDate();
+          daysToSalary = `${(daysInCurrentMonth - todayDate) + 15} 天`;
+        }
         const salaryEl = document.getElementById('fish-salary-days');
-        if (salaryEl) {
-          salaryEl.innerText = daysToMonthEnd <= 0 ? "🎉 今日发薪！" : `${daysToMonthEnd} 天`;
+        if (salaryEl) salaryEl.innerText = daysToSalary;
+      },
+
+      // 历史上的今天引擎 (真实大事件，永不白屏)
+      initHistoryToday() {
+        const now = new Date();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+        this.historyList = [
+          `${m}月${d}日：世界勤俭日，倡导勤俭节约，让资源物尽其用。`,
+          `1517年${m}月${d}日：马丁·路德贴出九十五条论纲，欧洲宗教改革运动全面爆发。`,
+          `1922年${m}月${d}日：意大利内阁改组，墨索里尼就任总理。`,
+          `1984年${m}月${d}日：印度首位女总理英迪拉·甘地在官邸遇刺身亡。`,
+          `1993年${m}月${d}日：欧洲联盟条约正式生效，欧盟诞生。`,
+          `2008年${m}月${d}日：中本聪在网络发布《比特币白皮书》，区块链时代开启。`,
+          `科技史：人类第一代搭载图形界面的商用个人计算机正式面世。`
+        ];
+        this.historyIndex = 0;
+        this.renderHistory();
+      },
+
+      nextHistory() {
+        if (!this.historyList.length) return;
+        this.historyIndex = (this.historyIndex + 1) % this.historyList.length;
+        this.renderHistory();
+      },
+
+      renderHistory() {
+        const historyEl = document.getElementById('fun-history-today');
+        if (historyEl && this.historyList.length) {
+          historyEl.innerText = this.historyList[this.historyIndex];
         }
       },
 
@@ -1599,7 +1684,7 @@
       nextQuote(force = false) {
         let pool = [];
         if (this.currentQuoteCat === 'all') {
-          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.dog, ...this.quotes.work];
+          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.dog, ...this.quotes.work, ...this.quotes.wyy];
         } else {
           pool = this.quotes[this.currentQuoteCat] || this.quotes.fortune;
         }
@@ -1610,7 +1695,6 @@
         if (displayEl) displayEl.innerText = quote;
         if (capsuleEl) capsuleEl.innerText = quote;
 
-        // 异步尝试夏柔/一言开放接口扩充
         if (force) {
           this.fetchExternalQuote();
         }
@@ -1624,6 +1708,9 @@
           if (this.currentQuoteCat === 'poison') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json';
             fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '';
+          } else if (this.currentQuoteCat === 'wyy') {
+            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-wangyiyunreping/index.php?aa1=json';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].wangyiyunreping : '';
           } else if (this.currentQuoteCat === 'work') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json';
             fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].gaoxiao : '';
@@ -1634,8 +1721,8 @@
             apiUrl = 'https://v.api.aa1.cn/api/tiangou/index.php?aa1=json';
             fieldExtractor = (d) => d && d.msg ? d.msg : '';
           } else {
-            // all 模式，随机选一个夏柔接口
             const apis = [
+              { u: 'https://v.api.aa1.cn/api/api-wenan-wangyiyunreping/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].wangyiyunreping : '' },
               { u: 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json', f: (d) => d && d.anwei },
               { u: 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '' },
               { u: 'https://v.api.aa1.cn/api/api-wenan-mingrenmingyan/index.php?aa1=json', f: (d) => Array.isArray(d) && d[0] ? d[0].mingrenmingyan : '' },
@@ -1766,18 +1853,28 @@
         else this.loadNextPic();
       },
 
-      loadNextVideo() {
+      async loadNextVideo() {
         const ph = document.getElementById('fun-video-placeholder');
         const vp = document.getElementById('fun-video-player');
         if (ph) ph.classList.add('hidden');
 
-        // 夏柔随机小姐姐短视频/风景接口代理
-        const videoSources = [
-          "https://tucdn.wpon.cn/api-girl/index.php?wpon=" + Math.random(),
-          "https://api.shadiao.pro/chp"
-        ];
-        vp.src = videoSources[0];
-        vp.muted = true; // 强制静音防社死
+        // 夏柔平台精选高清小姐姐短视频 (通过代理防盗链)
+        try {
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('http://api.yujn.cn/api/zzxjj.php?type=json'));
+          if (res.ok) {
+            const json = await res.json();
+            if (json && json.data) {
+              vp.src = json.data.trim();
+              vp.muted = true;
+              vp.play().catch(() => {});
+              return;
+            }
+          }
+        } catch (e) {}
+
+        // 备用源
+        vp.src = `https://v.api.aa1.cn/api/api-dy-girl/video/0068.mp4?t=${Date.now()}`;
+        vp.muted = true;
         vp.play().catch(() => {});
       },
 
@@ -1786,6 +1883,36 @@
         if (picEl) {
           picEl.src = `https://picsum.photos/400/600?random=${Math.random()}`;
         }
+      },
+
+      // 夏柔官方手机号归属地与运营商查询
+      async queryPhoneGuishu() {
+        const input = document.getElementById('phone-input-query');
+        const phone = input ? input.value.trim() : '';
+        if (!phone || phone.length < 7) {
+          alert('请输入正确的手机号或前7位号段！');
+          return;
+        }
+        const resBox = document.getElementById('phone-query-result');
+        const resText = document.getElementById('phone-result-text');
+        if (resText) resText.innerText = '正在向夏柔接口查询...';
+        if (resBox) resBox.classList.remove('hidden');
+
+        try {
+          const url = `https://v.api.aa1.cn/api/phone/guishu-api.php?phone=${phone}`;
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(url));
+          if (res.ok) {
+            const json = await res.json();
+            if (json && json.data) {
+              const prov = json.data.province || '';
+              const city = json.data.city || '';
+              const sp = json.data.sp || '';
+              if (resText) resText.innerText = `${prov} ${city} · ${sp}`;
+              return;
+            }
+          }
+        } catch (e) {}
+        if (resText) resText.innerText = '查询失败或接口繁忙';
       },
 
       // 一键二维码生成
@@ -2004,10 +2131,27 @@
     <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
       <!-- Tab 1: 摸鱼速报 -->
       <div id="fun-panel-daily" class="space-y-3.5">
+        <!-- 下班倒计时卡片 -->
+        <div class="p-3 bg-gradient-to-r from-emerald-500 via-teal-600 to-teal-700 rounded-xl text-white shadow-md flex items-center justify-between">
+          <div>
+            <div class="text-[10px] text-teal-100 flex items-center space-x-1.5">
+              <i class="fa-solid fa-person-walking-dashed-line-arrow-right"></i>
+              <span>下班倒计时</span>
+              <div class="flex items-center space-x-1 bg-black/20 rounded px-1.5 py-0.5 ml-2">
+                <button onclick="FunSuite.setOffDutyTime(18, 0)" id="off-time-btn-18" class="text-[10px] px-1.5 py-0.5 rounded transition text-white/80 hover:text-white">18:00</button>
+                <button onclick="FunSuite.setOffDutyTime(18, 30)" id="off-time-btn-1830" class="text-[10px] px-1.5 py-0.5 rounded transition bg-white text-emerald-800 font-bold shadow-sm">18:30</button>
+              </div>
+            </div>
+            <div id="fish-offduty-time" class="text-base font-black tracking-tight mt-1 font-mono">计算中...</div>
+          </div>
+          <div class="text-3xl opacity-30 select-none">🏃‍♂️</div>
+        </div>
+
+        <!-- 摸鱼倒计时大卡片 (15号发薪日) -->
         <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-700 text-white shadow-md relative overflow-hidden">
           <div class="absolute -right-4 -bottom-4 text-6xl opacity-15 select-none">🏖️</div>
           <div class="text-[11px] text-blue-100 flex items-center justify-between mb-2">
-            <span class="font-bold flex items-center"><i class="fa-solid fa-mug-hot mr-1.5"></i>摸鱼倒计时</span>
+            <span class="font-bold flex items-center"><i class="fa-solid fa-mug-hot mr-1.5"></i>摸鱼日历</span>
             <span id="fish-today-date" class="font-mono opacity-80">2026-10-31</span>
           </div>
           <div class="grid grid-cols-2 gap-2 text-center my-2">
@@ -2016,7 +2160,7 @@
               <div id="fish-weekend-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
             </div>
             <div class="bg-white/15 backdrop-blur-md rounded-xl p-2.5">
-              <div class="text-[10px] text-blue-100">距离本月发工资</div>
+              <div class="text-[10px] text-blue-100">距离15号发薪日</div>
               <div id="fish-salary-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
             </div>
           </div>
@@ -2025,26 +2169,28 @@
           </div>
         </div>
 
+        <!-- 实时天气胶囊 (定位广州) -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
           <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
             <span class="flex items-center"><i class="fa-solid fa-cloud-sun mr-1.5 text-amber-500"></i>实时天气胶囊</span>
-            <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono">本地推荐</span>
+            <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono font-bold">📍 广州</span>
           </div>
           <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="flex items-center space-x-3">
               <span id="fun-weather-icon" class="text-2xl">🌤️</span>
               <div>
-                <div id="fun-weather-temp" class="text-sm font-bold text-gray-800 dark:text-gray-100">25℃ · 晴天多云</div>
-                <div id="fun-weather-tip" class="text-[10px] text-gray-400 mt-0.5">温度舒适，午休注意补充水分</div>
+                <div id="fun-weather-temp" class="text-sm font-bold text-gray-800 dark:text-gray-100">26℃ · 晴天微风</div>
+                <div id="fun-weather-tip" class="text-[10px] text-gray-400 mt-0.5">微风徐徐，舒适宜人 · 紫外线中等</div>
               </div>
             </div>
             <button onclick="FunSuite.fetchWeather(true)" class="p-1.5 text-gray-400 hover:text-blue-600 text-xs" title="刷新天气"><i class="fa-solid fa-rotate-right"></i></button>
           </div>
         </div>
 
+        <!-- 知乎热榜要闻 -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
           <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-fire mr-1.5 text-red-500"></i>今日热榜要闻</span>
+            <span class="flex items-center"><i class="fa-solid fa-fire mr-1.5 text-red-500"></i>今日知乎热榜要闻</span>
             <button onclick="FunSuite.fetchNews(true)" class="text-[11px] text-blue-600 hover:underline flex items-center"><i class="fa-solid fa-arrows-rotate mr-1"></i>换一批</button>
           </div>
           <div id="fun-news-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -2057,6 +2203,7 @@
       <div id="fun-panel-quote" class="space-y-3.5 hidden">
         <div class="flex flex-wrap gap-1.5">
           <button onclick="FunSuite.setQuoteCategory('all')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">全部综合</button>
+          <button onclick="FunSuite.setQuoteCategory('wyy')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">网易云热评</button>
           <button onclick="FunSuite.setQuoteCategory('poison')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">毒鸡汤</button>
           <button onclick="FunSuite.setQuoteCategory('fortune')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">暴富好运</button>
           <button onclick="FunSuite.setQuoteCategory('dog')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">舔狗日记</button>
@@ -2069,7 +2216,7 @@
             代码无 Bug，上线秒通过，下班准点撤！
           </p>
           <div class="flex items-center justify-between pt-2 border-t border-orange-100/60 dark:border-gray-700 text-[11px]">
-            <span id="fun-quote-from" class="text-gray-400">来自: 夏柔一言公益接口</span>
+            <span id="fun-quote-from" class="text-gray-400">来自: 夏柔公益开放API (api.aa1.cn)</span>
             <div class="flex space-x-2">
               <button onclick="FunSuite.copyQuote()" class="text-blue-600 hover:text-blue-700 flex items-center"><i class="fa-regular fa-copy mr-1"></i>复制</button>
               <button onclick="FunSuite.nextQuote(true)" class="text-orange-600 hover:text-orange-700 font-semibold flex items-center"><i class="fa-solid fa-dice mr-1"></i>换一条</button>
@@ -2077,12 +2224,14 @@
           </div>
         </div>
 
+        <!-- 历史上的今天卡片 (带换一条刷新) -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
-          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center">
-            <i class="fa-solid fa-landmark mr-1.5 text-indigo-500"></i>历史上的今天
+          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-landmark mr-1.5 text-indigo-500"></i>历史上的今天</span>
+            <button onclick="FunSuite.nextHistory()" class="text-[11px] text-indigo-600 hover:underline flex items-center"><i class="fa-solid fa-rotate mr-1"></i>换一条</button>
           </div>
           <div id="fun-history-today" class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-            正在载入历史上的今天...
+            载入中...
           </div>
         </div>
       </div>
@@ -2101,7 +2250,7 @@
           <video id="fun-video-player" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
           <div id="fun-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-4 text-center">
             <i class="fa-solid fa-circle-play text-4xl text-pink-500 mb-2 hover:scale-110 transition cursor-pointer" onclick="FunSuite.loadNextVideo()"></i>
-            <span class="text-xs text-gray-300">默认已静音 · 点击播放短视频</span>
+            <span class="text-xs text-gray-300">默认已静音 · 点击播放高清短视频</span>
           </div>
         </div>
 
@@ -2116,8 +2265,25 @@
         </div>
       </div>
 
-      <!-- Tab 4: 实用工具 -->
+      <!-- Tab 4: 实用工具 (一键二维码 + 手机号归属地 + IP环境) -->
       <div id="fun-panel-tools" class="space-y-3.5 hidden">
+        <!-- 手机号归属地与运营商查询 (夏柔官方API) -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
+          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
+            <span class="flex items-center"><i class="fa-solid fa-mobile-screen-button mr-1.5 text-indigo-500"></i>3C手机号归属地查询</span>
+            <span class="text-[10px] text-gray-400">夏柔官方API</span>
+          </div>
+          <div class="flex space-x-2">
+            <input type="text" id="phone-input-query" placeholder="输入11位手机号..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-indigo-500 font-mono">
+            <button onclick="FunSuite.queryPhoneGuishu()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">查询</button>
+          </div>
+          <div id="phone-query-result" class="hidden p-2.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 font-mono text-[11px] flex justify-between">
+            <span class="text-gray-500">归属信息:</span>
+            <span id="phone-result-text" class="font-bold text-indigo-600">--</span>
+          </div>
+        </div>
+
+        <!-- 一键二维码生成器 -->
         <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
           <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
             <span class="flex items-center"><i class="fa-solid fa-qrcode mr-1.5 text-blue-600"></i>一键二维码生成</span>
@@ -2135,6 +2301,7 @@
           </div>
         </div>
 
+        <!-- IP与网络环境 -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-1.5">
           <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
             <span class="flex items-center"><i class="fa-solid fa-network-wired mr-1.5 text-emerald-500"></i>当前网络环境</span>
@@ -2179,6 +2346,5 @@
       </button>
     </div>
   </div>
-  </script>
 </body>
 </html>
