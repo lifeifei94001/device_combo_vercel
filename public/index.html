@@ -160,10 +160,10 @@
         <div>
           <div class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">历史记录</div>
           <div class="space-y-1">
-            <a href="javascript:void(0)" onclick="alert('已启用本地自动记忆机制，数据已实时保存在 app_memory！')" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition">
+            <a href="javascript:void(0)" onclick="openRecordsSummaryModal()" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
               <i class="fa-solid fa-clock-rotate-left w-5 text-gray-400 mr-2"></i><span>组合记录</span>
             </a>
-            <a href="javascript:void(0)" onclick="alert('系统运行正常，操作日志已自动记录。')" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition">
+            <a href="javascript:void(0)" onclick="openOperationLogsModal()" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition">
               <i class="fa-solid fa-list-check w-5 text-gray-400 mr-2"></i><span>操作日志</span>
             </a>
           </div>
@@ -182,6 +182,10 @@
           <input type="checkbox" id="theme-toggle" onchange="toggleDarkMode(this.checked)" class="sr-only peer">
           <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
+      </div>
+
+      <div id="cloud-sync-badge" class="text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate">
+        ☁️ 正在连接云端存储...
       </div>
 
       <div id="live-clock" class="text-[11px] font-mono text-blue-600 text-center py-1 bg-blue-50/50 rounded mb-2 font-medium">
@@ -771,6 +775,55 @@
     </div>
   </div>
 
+  <!-- ==================== 4. 云端组合记录总览 Modal ==================== -->
+  <div id="records-summary-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 flex flex-col" style="max-height: 85vh;">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div class="flex items-center space-x-2">
+          <span class="text-blue-600 font-bold text-lg"><i class="fa-solid fa-clock-rotate-left"></i></span>
+          <h3 class="font-bold text-gray-800 text-sm">云端组合记录总览 (Turso 实时同步)</h3>
+        </div>
+        <button onclick="closeRecordsSummaryModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
+      </div>
+      <div id="records-summary-body" class="p-5 overflow-y-auto flex-1 space-y-4 text-xs text-gray-600">
+        <div class="text-center py-10 text-gray-400">正在加载云端记录...</div>
+      </div>
+      <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <button onclick="openRecordsSummaryModal()" class="px-3.5 py-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
+          <i class="fa-solid fa-rotate mr-1"></i>刷新云端数据
+        </button>
+        <button onclick="closeRecordsSummaryModal()" class="px-4 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 5. 云端操作日志 Modal ==================== -->
+  <div id="operation-logs-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 flex flex-col" style="max-height: 85vh;">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div class="flex items-center space-x-2">
+          <span class="text-indigo-600 font-bold text-lg"><i class="fa-solid fa-list-check"></i></span>
+          <h3 class="font-bold text-gray-800 text-sm">云端操作与导出日志</h3>
+        </div>
+        <button onclick="closeOperationLogsModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
+      </div>
+      <div id="operation-logs-body" class="p-5 overflow-y-auto flex-1 space-y-2 text-xs text-gray-600">
+        <div class="text-center py-10 text-gray-400">正在加载操作日志...</div>
+      </div>
+      <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <button onclick="openOperationLogsModal()" class="px-3.5 py-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
+            <i class="fa-solid fa-rotate mr-1"></i>刷新
+          </button>
+          <button onclick="clearCloudLogs()" class="px-3.5 py-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
+            <i class="fa-solid fa-trash-can mr-1"></i>清空日志
+          </button>
+        </div>
+        <button onclick="closeOperationLogsModal()" class="px-4 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">关闭</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // 内存输入智能规范化 (GB自动去除B，1TB除外保留B)
     function cleanMemoryString(val) {
@@ -930,16 +983,86 @@
       loadModuleRecords();
     }
 
+    let lastBackendMode = 'unknown';
+    let saveRequestSeq = 0;
+
+    function updateCloudSyncBadge(mode, extraText = '') {
+      lastBackendMode = mode || 'offline';
+      const el = document.getElementById('cloud-sync-badge');
+      if (!el) return;
+      if (mode === 'turso') {
+        el.className = 'text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
+        el.innerText = extraText || '☁️ Turso 云端已同步';
+      } else if (mode === 'sqlite') {
+        el.className = 'text-[11px] text-blue-700 bg-blue-50/80 border border-blue-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
+        el.innerText = extraText || '💾 本地 SQLite 已连接';
+      } else {
+        el.className = 'text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
+        el.innerText = extraText || '⚠️ 离线本地缓存模式';
+      }
+    }
+
     async function loadModuleRecords() {
+      const targetMod = currentModule;
+      if (!['android', 'laptop', 'watch'].includes(targetMod)) return;
+
+      let localRecords = [];
       try {
-        const localData = localStorage.getItem('3c_records_' + currentModule);
+        const localData = localStorage.getItem('3c_records_' + targetMod);
         if (localData) {
-          currentRecords = JSON.parse(localData);
-        } else {
-          currentRecords = [];
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed)) localRecords = parsed;
         }
-        renderTable();
-      } catch (e) { console.error('加载记录异常', e); }
+      } catch (e) {
+        console.error('读取本地缓存异常', e);
+      }
+
+      // 先即时展示本地缓存，避免切换闪烁
+      currentRecords = localRecords;
+      renderTable();
+
+      try {
+        const res = await fetch(`/api/records?module=${encodeURIComponent(targetMod)}`);
+        const data = await res.json();
+        if (currentModule !== targetMod) return;
+
+        if (res.ok && data.status === 'ok') {
+          updateCloudSyncBadge(data.backend);
+          const cloudRecords = Array.isArray(data.records) ? data.records : [];
+          if (cloudRecords.length > 0) {
+            currentRecords = cloudRecords;
+            localStorage.setItem('3c_records_' + targetMod, JSON.stringify(cloudRecords));
+            localStorage.setItem('3c_migrated_' + targetMod, '1');
+            renderTable();
+          } else if (localRecords.length > 0 && !localStorage.getItem('3c_migrated_' + targetMod)) {
+            // 策略 2A：云端为空且存在本地历史草稿时自动迁移上云
+            const saveRes = await fetch('/api/records/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                module: targetMod,
+                records: localRecords,
+                action: 'migrate',
+                detail: `首次接入自动迁移本地 ${localRecords.length} 条草稿至云端`
+              })
+            });
+            const saveData = await saveRes.json();
+            if (saveRes.ok && saveData.status === 'ok') {
+              localStorage.setItem('3c_migrated_' + targetMod, '1');
+              updateCloudSyncBadge(saveData.backend, `☁️ 已迁移 ${localRecords.length} 条草稿`);
+            }
+          } else {
+            currentRecords = [];
+            localStorage.setItem('3c_migrated_' + targetMod, '1');
+            renderTable();
+          }
+        } else {
+          updateCloudSyncBadge('offline', '⚠️ 云端读取失败，已用本地缓存');
+        }
+      } catch (e) {
+        console.error('加载云端记录异常', e);
+        updateCloudSyncBadge('offline');
+      }
     }
 
     function renderTable() {
@@ -1120,17 +1243,50 @@
       el.value = cur ? `${cur}、${val}` : val;
     }
 
-    async function saveCurrentRecords(notify = false) {
+    async function saveCurrentRecords(notify = false, opts = {}) {
+      const targetMod = currentModule;
+      const snapshot = currentRecords.slice();
+      const seq = ++saveRequestSeq;
       try {
-        localStorage.setItem('3c_records_' + currentModule, JSON.stringify(currentRecords));
-        if (notify) alert('💾 记录已成功保存至云端/本地浏览器记忆库！');
+        localStorage.setItem('3c_records_' + targetMod, JSON.stringify(snapshot));
+        localStorage.setItem('3c_migrated_' + targetMod, '1');
       } catch (e) { console.error(e); }
+
+      try {
+        const res = await fetch('/api/records/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            module: targetMod,
+            records: snapshot,
+            skip_log: Boolean(opts.skipLog),
+            action: opts.action || 'save',
+            detail: opts.detail || ''
+          })
+        });
+        const data = await res.json();
+        if (seq !== saveRequestSeq && !notify) return;
+        if (res.ok && data.status === 'ok') {
+          updateCloudSyncBadge(data.backend);
+          if (notify) {
+            const label = data.backend === 'turso' ? 'Turso 云端数据库' : '本地数据库';
+            alert(`💾 已成功同步保存 ${snapshot.length} 条记录至${label}！`);
+          }
+        } else {
+          updateCloudSyncBadge('offline', '⚠️ 云端同步失败，已暂存本地');
+          if (notify) alert(`⚠️ 云端保存失败 (${data.msg || '未知错误'})，已先暂存在浏览器本地缓存！`);
+        }
+      } catch (e) {
+        console.error('同步云端失败', e);
+        updateCloudSyncBadge('offline', '⚠️ 网络异常，已暂存本地');
+        if (notify) alert('⚠️ 网络异常，记录已暂存在浏览器本地缓存，稍后可再次保存同步云端！');
+      }
     }
 
     function deleteSingleRow(idx) {
       currentRecords.splice(idx, 1);
       renderTable();
-      saveCurrentRecords();
+      saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
     }
 
     function deleteSelectedRows() {
@@ -1139,15 +1295,31 @@
       if (!indices.length) { alert('请先勾选需要删除的行！'); return; }
       indices.forEach(idx => currentRecords.splice(idx, 1));
       renderTable();
-      saveCurrentRecords();
+      saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
     }
 
     async function clearAllRecords() {
       if (!currentRecords.length) return;
-      if (confirm('确定要全新清空当前模块的所有机型记录吗？（将同步清空本地记忆）')) {
+      if (confirm('确定要全新清空当前模块的所有机型记录吗？（将同步清空云端数据库与本地记忆）')) {
+        const targetMod = currentModule;
         currentRecords = [];
-        localStorage.removeItem('3c_records_' + currentModule);
+        localStorage.removeItem('3c_records_' + targetMod);
+        localStorage.setItem('3c_migrated_' + targetMod, '1');
         renderTable();
+        try {
+          const res = await fetch('/api/records/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ module: targetMod })
+          });
+          const data = await res.json();
+          if (res.ok && data.status === 'ok') {
+            updateCloudSyncBadge(data.backend);
+          }
+        } catch (e) {
+          console.error('清空云端记录失败', e);
+          updateCloudSyncBadge('offline');
+        }
       }
     }
 
@@ -1220,7 +1392,7 @@
           if (data.status === 'ok') {
             currentRecords.push(...data.records);
             renderTable();
-            saveCurrentRecords();
+            await saveCurrentRecords(false, { skipLog: true });
             alert(`🎉 ${data.msg}`);
           } else {
             alert(`导入失败: ${data.msg}`);
@@ -1493,6 +1665,148 @@
             <div class="grid grid-cols-4 gap-2 max-h-72 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.brands.map(b => `<div class="px-2.5 py-1 text-xs bg-gray-50 border border-gray-100 rounded flex justify-between"><span class="font-bold text-gray-800">${b.name}</span><span class="text-blue-600 font-mono">ID:${b.id}</span></div>`).join('')}</div>
           </div>
         `;
+      }
+    }
+
+    const MODULE_META = {
+      android: { label: '手机&平板组合', icon: '📱', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+      laptop: { label: '笔记本组合', icon: '💻', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+      watch: { label: '智能手表组合', icon: '⌚', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' }
+    };
+
+    const ACTION_META = {
+      save: { label: '保存', cls: 'bg-blue-50 text-blue-700' },
+      migrate: { label: '自动迁移', cls: 'bg-teal-50 text-teal-700' },
+      import: { label: 'Excel导入', cls: 'bg-purple-50 text-purple-700' },
+      generate: { label: '排列导出', cls: 'bg-orange-50 text-orange-700' },
+      delete: { label: '删减记录', cls: 'bg-rose-50 text-rose-700' },
+      clear: { label: '清空列表', cls: 'bg-red-50 text-red-700' }
+    };
+
+    function closeRecordsSummaryModal() {
+      document.getElementById('records-summary-modal').classList.add('hidden');
+    }
+
+    async function openRecordsSummaryModal() {
+      const modal = document.getElementById('records-summary-modal');
+      const body = document.getElementById('records-summary-body');
+      modal.classList.remove('hidden');
+      body.innerHTML = '<div class="text-center py-10 text-gray-400">正在同步 Turso 云端记录总览...</div>';
+
+      try {
+        const res = await fetch('/api/records?module=all');
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') {
+          body.innerHTML = `<div class="text-center py-8 text-red-500">加载失败: ${escapeHtml(data.msg || '未知错误')}</div>`;
+          return;
+        }
+        updateCloudSyncBadge(data.backend);
+        const summary = data.summary || {};
+        const backendLabel = data.backend === 'turso' ? 'Turso 云端数据库' : '本地 SQLite 数据库';
+        const cardsHtml = ['android', 'laptop', 'watch'].map(mod => {
+          const meta = MODULE_META[mod];
+          const info = summary[mod] || { count: 0, updated_at: '', records: [] };
+          const previewList = (info.records || []).slice(0, 3).map(r => {
+            const brand = escapeHtml(r['品牌名称'] || '-');
+            const model = escapeHtml(r['机型编号'] || r['型号'] || '-');
+            const detail = escapeHtml(r['内存'] || r['固态硬盘'] || r['表壳材质'] || '');
+            return `<div class="px-2.5 py-1.5 bg-white rounded border border-gray-100 flex items-center justify-between text-[11px]">
+              <span class="font-medium text-gray-800">${brand} · ${model}</span>
+              <span class="text-gray-400 truncate max-w-[200px]">${detail}</span>
+            </div>`;
+          }).join('');
+
+          return `
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <span class="text-base">${meta.icon}</span>
+                  <span class="font-bold text-gray-800 text-sm">${meta.label}</span>
+                  <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full border ${meta.badgeClass}">${info.count} 条</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-[11px] text-gray-400">${info.updated_at ? '更新: ' + escapeHtml(info.updated_at) : '暂无记录'}</span>
+                  <button onclick="closeRecordsSummaryModal(); switchModule('${mod}');" class="px-2.5 py-1 text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition">切换查看</button>
+                </div>
+              </div>
+              ${previewList ? `<div class="space-y-1">${previewList}${info.count > 3 ? `<div class="text-[11px] text-gray-400 pl-1">... 其余 ${info.count - 3} 条请在对应模块查看</div>` : ''}</div>` : '<div class="text-[11px] text-gray-400">当前云端暂无待处理记录</div>'}
+            </div>
+          `;
+        }).join('');
+
+        body.innerHTML = `
+          <div class="text-[11px] text-gray-500 flex items-center justify-between px-1">
+            <span>当前数据源：<b class="text-emerald-600">${backendLabel}</b></span>
+            <span>点击「切换查看」可立即拉取该模块完整记录</span>
+          </div>
+          ${cardsHtml}
+        `;
+      } catch (e) {
+        body.innerHTML = `<div class="text-center py-8 text-red-500">网络请求异常: ${escapeHtml(String(e))}</div>`;
+      }
+    }
+
+    function closeOperationLogsModal() {
+      document.getElementById('operation-logs-modal').classList.add('hidden');
+    }
+
+    async function openOperationLogsModal() {
+      const modal = document.getElementById('operation-logs-modal');
+      const body = document.getElementById('operation-logs-body');
+      modal.classList.remove('hidden');
+      body.innerHTML = '<div class="text-center py-10 text-gray-400">正在加载云端操作日志...</div>';
+
+      try {
+        const res = await fetch('/api/logs?limit=100');
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') {
+          body.innerHTML = `<div class="text-center py-8 text-red-500">加载失败: ${escapeHtml(data.msg || '未知错误')}</div>`;
+          return;
+        }
+        updateCloudSyncBadge(data.backend);
+        const logs = Array.isArray(data.logs) ? data.logs : [];
+        if (!logs.length) {
+          body.innerHTML = '<div class="text-center py-12 text-gray-400">暂无云端操作日志，保存、导入或生成导出后将自动记录。</div>';
+          return;
+        }
+
+        body.innerHTML = logs.map(item => {
+          const modMeta = MODULE_META[item.module] || { label: item.module, icon: '📦' };
+          const actMeta = ACTION_META[item.action] || { label: item.action, cls: 'bg-gray-100 text-gray-700' };
+          const countsText = item.output_count > 0
+            ? `输入 ${item.record_count} 条 → 导出 ${item.output_count} 行`
+            : `涉及 ${item.record_count} 条`;
+          return `
+            <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between gap-3">
+              <div class="space-y-1 min-w-0">
+                <div class="flex items-center space-x-2 flex-wrap">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${actMeta.cls}">${escapeHtml(actMeta.label)}</span>
+                  <span class="font-medium text-gray-800">${modMeta.icon} ${escapeHtml(modMeta.label)}</span>
+                  <span class="text-[11px] font-mono text-gray-400">${escapeHtml(countsText)}</span>
+                </div>
+                <div class="text-[11px] text-gray-600 truncate">${escapeHtml(item.detail || '-')}</div>
+              </div>
+              <div class="text-[11px] font-mono text-gray-400 flex-shrink-0">${escapeHtml(item.created_at || '')}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        body.innerHTML = `<div class="text-center py-8 text-red-500">网络请求异常: ${escapeHtml(String(e))}</div>`;
+      }
+    }
+
+    async function clearCloudLogs() {
+      if (!confirm('确定要清空所有云端操作日志吗？（不影响已保存的机型列表）')) return;
+      try {
+        const res = await fetch('/api/logs/clear', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+          openOperationLogsModal();
+        } else {
+          alert(`清空失败: ${data.msg || '未知错误'}`);
+        }
+      } catch (e) {
+        alert(`清空日志异常: ${e}`);
       }
     }
 

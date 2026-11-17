@@ -18,8 +18,31 @@ from core.laptop_engine import generate_laptop_combinations
 from core.watch_engine import generate_watch_combinations
 from core.dict_manager import dict_manager
 from core.template_manager import TemplateManager
+from core.turso_db import turso_store
 
 app = Flask(__name__)
+
+_VALID_MODULES = {"android", "laptop", "watch"}
+
+
+def _normalize_module(raw: str) -> str:
+    m = (raw or "android").strip().lower()
+    return m if m in _VALID_MODULES else "android"
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(err):
+    return jsonify({"status": "error", "msg": str(err)}), 500
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """检查服务与 Turso / SQLite 存储引擎连通性"""
+    try:
+        info = turso_store.check_health()
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"status": "error", "backend": turso_store.get_backend_info().get("mode"), "msg": str(e)}), 500
 
 
 @app.route('/api/dict/data', methods=['GET'])
@@ -74,12 +97,22 @@ def upload_excel():
     """解析上传的 Excel/WPS 表格"""
     try:
         data = request.get_json(force=True) or {}
-        module_id = data.get('module', 'android')
+        module_id = _normalize_module(data.get('module', 'android'))
         base64_file = data.get('file_base64', '')
 
         raw_bytes = base64.b64decode(base64_file.split(',')[-1])
         ok, records, msg = TemplateManager.parse_uploaded_file(module_id, raw_bytes)
         if ok:
+            try:
+                turso_store.append_log(
+                    module_id,
+                    "import",
+                    record_count=len(records),
+                    output_count=0,
+                    detail=f"Excel 导入解析成功 {len(records)} 条记录",
+                )
+            except Exception:
+                pass
             return jsonify({"status": "ok", "records": records, "msg": msg})
         else:
             return jsonify({"status": "error", "msg": msg}), 400
@@ -92,7 +125,7 @@ def generate():
     """执行笛卡尔积排列组合与结构化排序，并直接生成 Base64 下载流"""
     try:
         data = request.get_json(force=True) or {}
-        module_id = data.get('module', 'android')
+        module_id = _normalize_module(data.get('module', 'android'))
         records = data.get('records', [])
 
         if not records:
@@ -117,6 +150,17 @@ def generate():
         csv_bytes = csv_buffer.getvalue().encode('utf-8-sig')
         csv_base64 = base64.b64encode(csv_bytes).decode('utf-8')
 
+        try:
+            turso_store.append_log(
+                module_id,
+                "generate",
+                record_count=len(records),
+                output_count=count,
+                detail=f"生成 {count} 行排列组合并导出 {csv_filename}",
+            )
+        except Exception:
+            pass
+
         return jsonify({
             "status": "ok",
             "count": count,
@@ -127,20 +171,95 @@ def generate():
         return jsonify({"status": "error", "msg": f"生成异常: {str(e)}"}), 500
 
 
-# 兼容旧前端可能发起的 /api/records 请求（防止 404/500）
 @app.route('/api/records', methods=['GET'])
-def get_records_compat():
-    return jsonify({"status": "ok", "data": []})
+def get_records():
+    """读取 Turso / SQLite 中保存的模块机型列表或全模块摘要"""
+    try:
+        raw_mod = (request.args.get('module') or 'android').strip().lower()
+        backend_mode = turso_store.get_backend_info().get("mode")
+        if raw_mod == 'all':
+            summary = turso_store.load_all_summary()
+            return jsonify({"status": "ok", "backend": backend_mode, "summary": summary})
+        module_id = _normalize_module(raw_mod)
+        records = turso_store.load_records(module_id)
+        return jsonify({
+            "status": "ok",
+            "module": module_id,
+            "backend": backend_mode,
+            "records": records,
+            "data": records,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"读取云端记录失败: {str(e)}"}), 500
 
 
 @app.route('/api/records/save', methods=['POST'])
-def save_records_compat():
-    return jsonify({"status": "ok", "count": 0})
+def save_records():
+    """原子化保存指定模块的机型列表至 Turso / SQLite"""
+    try:
+        data = request.get_json(force=True) or {}
+        module_id = _normalize_module(data.get('module', 'android'))
+        records = data.get('records', [])
+        if not isinstance(records, list):
+            return jsonify({"status": "error", "msg": "records 必须为数组"}), 400
+        skip_log = bool(data.get('skip_log', False))
+        log_action = None if skip_log else (data.get('action') or 'save')
+        log_detail = str(data.get('detail') or '')
+        count = turso_store.save_records(
+            module_id,
+            records,
+            log_action=log_action,
+            log_detail=log_detail,
+        )
+        return jsonify({
+            "status": "ok",
+            "module": module_id,
+            "backend": turso_store.get_backend_info().get("mode"),
+            "count": count,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"保存云端记录失败: {str(e)}"}), 500
 
 
 @app.route('/api/records/clear', methods=['POST'])
-def clear_records_compat():
-    return jsonify({"status": "ok"})
+def clear_records():
+    """清空指定模块的云端机型列表"""
+    try:
+        data = request.get_json(force=True) or {}
+        module_id = _normalize_module(data.get('module', 'android'))
+        turso_store.clear_records(module_id)
+        return jsonify({
+            "status": "ok",
+            "module": module_id,
+            "backend": turso_store.get_backend_info().get("mode"),
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"清空云端记录失败: {str(e)}"}), 500
+
+
+@app.route('/api/logs', methods=['GET'])
+def get_operation_logs():
+    """获取云端操作与导出历史日志"""
+    try:
+        limit = request.args.get('limit', 100)
+        logs = turso_store.list_logs(limit=int(limit))
+        return jsonify({
+            "status": "ok",
+            "backend": turso_store.get_backend_info().get("mode"),
+            "logs": logs,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"读取操作日志失败: {str(e)}"}), 500
+
+
+@app.route('/api/logs/clear', methods=['POST'])
+def clear_operation_logs():
+    """清空云端操作日志"""
+    try:
+        turso_store.clear_logs()
+        return jsonify({"status": "ok", "backend": turso_store.get_backend_info().get("mode")})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"清空日志失败: {str(e)}"}), 500
 
 
 @app.route('/api/fun_proxy', methods=['GET'])
