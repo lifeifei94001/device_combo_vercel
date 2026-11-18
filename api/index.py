@@ -5,6 +5,7 @@ Vercel Serverless API 路由中心 (Flask ASGI/WSGI 适配器 · 零 pandas 极�
 import os
 import sys
 import io
+import time
 import base64
 from urllib.parse import unquote, urlparse
 import requests
@@ -275,6 +276,7 @@ _PROXY_HEADERS = {
 _PROXY_ALLOWLIST = {
     'v.api.aa1.cn',
     'api.yujn.cn',
+    '60s.viki.moe',
     'wttr.in',
     'whois.pconline.com.cn',
     'ipwho.is',
@@ -555,9 +557,12 @@ def get_weather():
     })
 
 
+_HOTLIST_CACHE = {}
+
+
 @app.route('/api/fun_proxy', methods=['GET'])
 def fun_proxy():
-    """安全代理外部公开 API：白名单防 SSRF + requests 长超时 + 自动编码修复"""
+    """安全代理外部公开 API：白名单防 SSRF + requests 长超时 + 自动编码修复 + 热榜短缓存"""
     target_url = (request.args.get('url') or '').strip()
     if not target_url:
         return jsonify({"status": "error", "msg": "Missing url parameter"}), 400
@@ -565,8 +570,20 @@ def fun_proxy():
     parsed = urlparse(target_url)
     if parsed.scheme not in ('http', 'https') or not parsed.hostname:
         return jsonify({"status": "error", "msg": "Invalid url scheme"}), 400
-    if parsed.hostname.lower() not in _PROXY_ALLOWLIST:
+    host_low = parsed.hostname.lower()
+    if host_low not in _PROXY_ALLOWLIST:
         return jsonify({"status": "error", "msg": f"Domain not allowed: {parsed.hostname}"}), 403
+
+    if host_low == '60s.viki.moe':
+        cached = _HOTLIST_CACHE.get(target_url)
+        if cached and (time.time() - cached['ts'] < 300):
+            response = app.response_class(
+                response=cached['body'],
+                status=200,
+                mimetype='application/json; charset=utf-8',
+            )
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
 
     try:
         resp = _PROXY_SESSION.get(target_url, headers=_PROXY_HEADERS, timeout=8, allow_redirects=True)
@@ -578,8 +595,12 @@ def fun_proxy():
         if raw_text.startswith('{') or raw_text.startswith('['):
             content_type = 'application/json; charset=utf-8'
 
+        encoded = raw_text.encode('utf-8')
+        if host_low == '60s.viki.moe' and resp.status_code == 200:
+            _HOTLIST_CACHE[target_url] = {'ts': time.time(), 'body': encoded}
+
         response = app.response_class(
-            response=raw_text.encode('utf-8'),
+            response=encoded,
             status=resp.status_code,
             mimetype=content_type,
         )

@@ -21,7 +21,6 @@
     }
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -1950,14 +1949,6 @@
           "问：为什么打工人喜欢喝冰美式？回复：因为人生够苦了，咖啡也就没那么苦了。",
           "问：如何用一句话让老板闭嘴？回复：'根据劳动法第三十八条...'。"
         ],
-        dog: [
-          "你发了一条朋友圈说冷，我立刻把家里的空调开到了30度，这样我们是不是就拥有相同的温度了？",
-          "今天下雨了，我看了看天空，每一滴雨都落在我想你的心上。",
-          "你回了我一个'嗯'，我兴奋得一整晚没睡，你一定是在暗示我明天继续找你！",
-          "我去输液了，输什么液？想你的每一夜。",
-          "你发了一个问号，我揣摩了半小时，原来你是在沉默中思考我们的未来。",
-          "你发了晚安之后还在王者荣耀激战，我知道你是在梦里保护我。"
-        ],
         work: [
           "工作是做不完的，但命只有一条，准点下班是当代青年的自我修养。",
           "上班摸鱼不是懒，是打工人维护心理健康的核心防御机制。",
@@ -2042,10 +2033,14 @@
       init() {
         this.initOffDutyTimer();
         this.initFishCalendar();
+        this.initSalaryMeter();
+        this.initMuyu();
+        this.initBubbles();
+        this.init2048();
+        this.initBossKey();
         this.fetchWeather();
-        this.fetchIpInfo();
         this.initQuote();
-        this.fetchNews();
+        this.switchHotSource('weibo', false);
         this.initWallpaper();
         this.initBadgeVisibility();
         this.initFoodRoller();
@@ -2228,7 +2223,7 @@
       nextQuote(force = false) {
         let pool = [];
         if (this.currentQuoteCat === 'all') {
-          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.kfc, ...this.quotes.shenhuifu, ...this.quotes.dog, ...this.quotes.work, ...this.quotes.wyy];
+          pool = [...this.quotes.poison, ...this.quotes.fortune, ...this.quotes.kfc, ...this.quotes.shenhuifu, ...this.quotes.work, ...this.quotes.wyy];
         } else {
           pool = this.quotes[this.currentQuoteCat] || this.quotes.fortune;
         }
@@ -2242,7 +2237,7 @@
         if (fromEl) {
           if (this.currentQuoteCat === 'kfc') fromEl.innerText = "出处: 肯德基疯狂星期四宇宙";
           else if (this.currentQuoteCat === 'shenhuifu') fromEl.innerText = "出处: 夏柔官方神回复 (api.aa1.cn)";
-          else fromEl.innerText = "出处: 夏柔公益开放API (api.aa1.cn)";
+          else fromEl.innerText = "出处: 一言 Hitokoto / 夏柔公益 API";
         }
 
         if (force) {
@@ -2267,12 +2262,9 @@
           } else if (this.currentQuoteCat === 'work') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json';
             fieldExtractor = (d) => Array.isArray(d) && d[0] ? (d[0].gaoxiao || '') : (d?.gaoxiao || '');
-          } else if (this.currentQuoteCat === 'fortune') {
-            apiUrl = 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json';
-            fieldExtractor = (d) => (d && d.anwei) ? d.anwei : (Array.isArray(d) && d[0] ? (d[0].anwei || '') : '');
-          } else if (this.currentQuoteCat === 'dog') {
-            apiUrl = 'https://v.api.aa1.cn/api/tiangou/index.php?aa1=json';
-            fieldExtractor = (d) => (d && d.msg) ? d.msg : '';
+          } else if (this.currentQuoteCat === 'fortune' || this.currentQuoteCat === 'all') {
+            apiUrl = 'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json';
+            fieldExtractor = (d) => (d && d.hitokoto) ? `${d.hitokoto}${d.from ? ' ——' + d.from : ''}` : '';
           }
 
           if (!apiUrl) return;
@@ -2284,7 +2276,7 @@
           if (res.ok) {
             const data = await res.json();
             let text = String(fieldExtractor(data) || '').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').trim();
-            if (text && !text.includes('()') && text.length >= 4 && !/避孕|色情/.test(text)) {
+            if (text && !text.includes('()') && text.length >= 4) {
               const displayEl = document.getElementById('fun-quote-display');
               const capsuleEl = document.getElementById('capsule-quote');
               if (displayEl) displayEl.innerText = text;
@@ -2304,73 +2296,95 @@
         });
       },
 
-      // 历史上的今天
-      nextHistory() {
-        const historyEl = document.getElementById('fun-history-today');
-        if (!historyEl) return;
-        const histories = [
-          "1922年：英国广播公司（BBC）正式建立广播网络。",
-          "1993年：欧洲联盟（欧盟）正式诞生生效。",
-          "2008年：中本聪发布《比特币白皮书：一种点对点的电子现金系统》。",
-          "1958年：世界上第一台现代视频游戏《双人网球》公开展出。",
-          "1984年：第一台配备图形界面的苹果 Macintosh 个人电脑亮相。",
-          "2007年：初代 iPhone 正式开售，掀起移动互联网与 3C 智能手机浪潮！",
-          "1971年：世界上第一个微处理器 Intel 4004 面世，开创微机时代。"
-        ];
-        historyEl.innerText = histories[Math.floor(Math.random() * histories.length)];
+      // ==================== 三源实时热榜吃瓜 (微博热搜 / 知乎热榜 / 每日60秒) ====================
+      currentHotSource: 'weibo',
+
+      switchHotSource(src, notify = true) {
+        this.currentHotSource = src;
+        ['weibo', 'zhihu', '60s'].forEach(s => {
+          const btn = document.getElementById(`hot-src-${s}`);
+          if (btn) {
+            btn.className = s === src
+              ? 'px-2.5 py-1 rounded-md text-[11px] bg-red-500 text-white font-semibold shadow-sm transition'
+              : 'px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition';
+          }
+        });
+        this.fetchNews(notify);
       },
 
-      // 今日热榜要闻
       async fetchNews(force = false) {
         const listEl = document.getElementById('fun-news-list');
         if (!listEl) return;
+        const src = this.currentHotSource || 'weibo';
+        if (force) listEl.innerHTML = '<div class="p-4 text-center text-gray-400">正在同步实时热榜...</div>';
+
+        const endpointMap = {
+          weibo: 'https://60s.viki.moe/v2/weibo',
+          zhihu: 'https://60s.viki.moe/v2/zhihu',
+          '60s': 'https://60s.viki.moe/v2/60s'
+        };
 
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 6000);
-          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v.api.aa1.cn/api/zhihu-news/index.php?aa1=renxi'), { signal: controller.signal });
+          const timer = setTimeout(() => controller.abort(), 6500);
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(endpointMap[src] || endpointMap.weibo), { signal: controller.signal });
           clearTimeout(timer);
           if (res.ok) {
-            const data = await res.json();
-            const newsArr = (data && data.news && data.news.length) ? data.news : (data && data.top_stories ? data.top_stories : []);
-            if (newsArr && newsArr.length) {
-              listEl.innerHTML = newsArr.map((n, idx) => {
-                const safeHref = escapeHtml(n.url || n.share_url || 'https://daily.zhihu.com/');
+            const payload = await res.json();
+            const d = payload && payload.data;
+            if (src === '60s' && d && Array.isArray(d.news) && d.news.length) {
+              const tipBanner = d.tip ? `<div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[11px] mb-1.5">💡 ${escapeHtml(d.tip)}</div>` : '';
+              listEl.innerHTML = tipBanner + d.news.map((line, idx) => `
+                <div class="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 flex items-start space-x-2">
+                  <span class="w-4 h-4 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
+                  <span class="leading-relaxed">${escapeHtml(line)}</span>
+                </div>
+              `).join('');
+              return;
+            }
+            if (Array.isArray(d) && d.length) {
+              listEl.innerHTML = d.slice(0, 20).map((n, idx) => {
+                const safeHref = escapeHtml(n.link || n.url || 'https://s.weibo.com/');
+                const badgeCls = idx < 3 ? 'bg-red-500 text-white' : 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300';
+                const hotVal = n.hot_value_desc || (n.hot_value ? `${Math.round(n.hot_value / 10000)}w` : '');
                 return `
-                <a href="${safeHref}" target="_blank" rel="noopener noreferrer" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
-                  <div class="flex items-start space-x-2">
-                    <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
-                    <div class="flex-1">
-                      <div class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition font-medium">${escapeHtml(n.title || '')}</div>
-                      ${n.hint ? `<div class="text-[10px] text-gray-400 mt-0.5">${escapeHtml(n.hint)}</div>` : ''}
+                  <a href="${safeHref}" target="_blank" rel="noopener noreferrer" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
+                    <div class="flex items-start space-x-2">
+                      <span class="w-4 h-4 rounded text-[10px] font-bold ${badgeCls} flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
+                      <div class="flex-1 min-w-0">
+                        <div class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition font-medium">${escapeHtml(n.title || '')}</div>
+                        ${hotVal ? `<div class="text-[10px] text-orange-500 font-mono mt-0.5">🔥 热度 ${escapeHtml(String(hotVal))}</div>` : ''}
+                      </div>
                     </div>
-                  </div>
-                </a>
-              `;
+                  </a>
+                `;
               }).join('');
-              this.nextHistory();
               return;
             }
           }
         } catch (e) {}
 
-        const defaultNews = [
-          { title: "📱 旗舰新机发布潮：多款骁龙/天玑新机亮相，3C数据库需及时增补", url: "https://www.zhihu.com/search?type=content&q=3C数码新机" },
-          { title: "💻 AI PC 新纪元：端侧大模型算力与大容量 SSD 成为新机标配", url: "https://www.zhihu.com/search?type=content&q=AIPC" },
-          { title: "⌚ 智能穿戴生态升级：健康监测传感器与钛金属表壳普及", url: "https://www.zhihu.com/search?type=content&q=智能手表" },
-          { title: "☕ 打工人周五摸鱼指南：如何优雅地按时下班", url: "https://www.zhihu.com" },
-          { title: "🚀 3C Matrix 云端双模版已接入 Turso 数据库，字典与记录实时同步", url: "https://www.zhihu.com/search?type=content&q=Turso" }
-        ];
+        // 备用知乎源
+        try {
+          const res2 = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v.api.aa1.cn/api/zhihu-news/index.php?aa1=renxi'));
+          if (res2.ok) {
+            const data2 = await res2.json();
+            const arr = (data2 && data2.news) || [];
+            if (arr.length) {
+              listEl.innerHTML = arr.map((n, idx) => `
+                <a href="${escapeHtml(n.url || 'https://daily.zhihu.com/')}" target="_blank" rel="noopener noreferrer" class="block p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200">
+                  <div class="flex items-start space-x-2">
+                    <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
+                    <span class="line-clamp-2 leading-relaxed">${escapeHtml(n.title || '')}</span>
+                  </div>
+                </a>
+              `).join('');
+              return;
+            }
+          }
+        } catch (e) {}
 
-        listEl.innerHTML = defaultNews.map((n, idx) => `
-          <a href="${n.url}" target="_blank" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
-            <div class="flex items-start space-x-2">
-              <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
-              <span class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition">${n.title}</span>
-            </div>
-          </a>
-        `).join('');
-        this.nextHistory();
+        listEl.innerHTML = '<div class="p-4 text-center text-gray-400">热榜接口暂时繁忙，请稍后点击刷新重试~</div>';
       },
 
       // ==================== 今天吃什么？纠结终结者 (美食摇号机) ====================
@@ -2406,181 +2420,420 @@
         }, 65);
       },
 
-      // ==================== 实用小工具增强 ====================
-      // 1. QQ 头像快查 (夏柔官方 API 体验)
-      queryQQAvatar() {
-        const input = document.getElementById('qq-input-query');
-        const qq = input ? input.value.trim() : '';
-        if (!qq || !/^\d{5,12}$/.test(qq)) {
-          alert('请输入正确的 5~12 位数字 QQ 号！');
-          return;
-        }
+      // ==================== 1. 带薪摸鱼收入实时跳动器 ====================
+      salaryCfg: { monthly: 8000, startH: 9, workDays: 22, hidden: false },
 
-        const avatarUrl = `https://q1.qlogo.cn/g?b=qq&nk=${qq}&s=640`;
-        const resBox = document.getElementById('qq-query-result');
-        const imgEl = document.getElementById('qq-avatar-img');
-        const textEl = document.getElementById('qq-num-display');
-        const linkEl = document.getElementById('qq-avatar-link');
-
-        if (imgEl) imgEl.src = avatarUrl;
-        if (textEl) textEl.innerText = `QQ: ${qq}`;
-        if (linkEl) linkEl.href = avatarUrl;
-        if (resBox) resBox.classList.remove('hidden');
-        this.showToast(`✨ QQ ${qq} 高清头像已获取！`);
+      initSalaryMeter() {
+        try {
+          const saved = JSON.parse(localStorage.getItem('3c_salary_cfg') || 'null');
+          if (saved && typeof saved === 'object') this.salaryCfg = { ...this.salaryCfg, ...saved };
+        } catch (e) {}
+        const inp = document.getElementById('salary-monthly-input');
+        if (inp) inp.value = this.salaryCfg.monthly;
+        this.tickSalaryMeter();
+        setInterval(() => this.tickSalaryMeter(), 1000);
       },
 
-      // 2. 安全强密码生成器 (夏柔 API 理念)
-      generatePassword() {
-        const lenSlider = document.getElementById('pwd-len-slider');
-        const length = lenSlider ? parseInt(lenSlider.value) : 16;
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*()_+~=";
-        let pwd = "";
-        for (let i = 0; i < length; i++) {
-          pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const displayEl = document.getElementById('gen-pwd-display');
-        if (displayEl) {
-          displayEl.value = pwd;
-          this.showToast(`🔑 已生成 ${length} 位高强度强密码！`);
+      saveSalaryConfig() {
+        const inp = document.getElementById('salary-monthly-input');
+        const val = Math.max(1000, parseFloat(inp ? inp.value : 8000) || 8000);
+        this.salaryCfg.monthly = val;
+        localStorage.setItem('3c_salary_cfg', JSON.stringify(this.salaryCfg));
+        this.tickSalaryMeter();
+      },
+
+      toggleSalaryPrivacy() {
+        this.salaryCfg.hidden = !this.salaryCfg.hidden;
+        localStorage.setItem('3c_salary_cfg', JSON.stringify(this.salaryCfg));
+        this.tickSalaryMeter();
+      },
+
+      tickSalaryMeter() {
+        const el = document.getElementById('fish-earned-today');
+        const rateEl = document.getElementById('fish-salary-rate');
+        if (!el) return;
+        const dailySalary = this.salaryCfg.monthly / (this.salaryCfg.workDays || 22);
+        const start = new Date();
+        start.setHours(this.salaryCfg.startH || 9, 0, 0, 0);
+        const end = new Date();
+        end.setHours(this.offDutyH || 18, this.offDutyM || 30, 0, 0);
+        const totalMs = Math.max(3600000, end - start);
+        const elapsedMs = Math.max(0, Math.min(totalMs, Date.now() - start.getTime()));
+        const earned = (dailySalary * (elapsedMs / totalMs));
+        const perMin = (dailySalary / (totalMs / 60000));
+        if (this.salaryCfg.hidden) {
+          el.innerText = '¥ ***.**';
+          if (rateEl) rateEl.innerText = '隐私保护中';
+        } else {
+          el.innerText = `¥ ${earned.toFixed(2)}`;
+          if (rateEl) rateEl.innerText = `约 ¥${perMin.toFixed(2)} / 分钟 · 日薪 ¥${dailySalary.toFixed(0)}`;
         }
       },
 
-      copyPassword() {
-        const displayEl = document.getElementById('gen-pwd-display');
-        if (!displayEl || !displayEl.value) {
-          this.generatePassword();
+      // ==================== 2. Web Audio 原生音效与赛博电子木鱼 ====================
+      _audioCtx: null,
+      muyuCount: 0,
+      muyuAutoTimer: null,
+
+      _getAudioCtx() {
+        if (!this._audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) this._audioCtx = new AC();
+        }
+        if (this._audioCtx && this._audioCtx.state === 'suspended') {
+          this._audioCtx.resume().catch(() => {});
+        }
+        return this._audioCtx;
+      },
+
+      initMuyu() {
+        this.muyuCount = parseInt(localStorage.getItem('3c_muyu_count') || '0', 10) || 0;
+        const cntEl = document.getElementById('muyu-total-count');
+        if (cntEl) cntEl.innerText = String(this.muyuCount);
+      },
+
+      playWoodenFishSound() {
+        try {
+          const ctx = this._getAudioCtx();
+          if (!ctx) return;
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(195, now + 0.11);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.17);
+        } catch (e) {}
+      },
+
+      hitMuyu() {
+        this.muyuCount += 1;
+        localStorage.setItem('3c_muyu_count', String(this.muyuCount));
+        const cntEl = document.getElementById('muyu-total-count');
+        if (cntEl) cntEl.innerText = String(this.muyuCount);
+        this.playWoodenFishSound();
+
+        const btn = document.getElementById('muyu-btn');
+        if (btn) {
+          btn.style.transform = 'scale(0.91)';
+          setTimeout(() => { btn.style.transform = 'scale(1)'; }, 90);
+        }
+
+        const stage = document.getElementById('muyu-stage');
+        if (stage) {
+          const tags = ['功德 +1', 'Bug -1', '需求退散', '带薪摸鱼 +1', '准点下班 +1', '发财 +1'];
+          const pop = document.createElement('span');
+          pop.className = 'absolute left-1/2 top-2 text-[11px] font-bold text-amber-500 pointer-events-none pet-float-feedback whitespace-nowrap';
+          pop.innerText = tags[Math.floor(Math.random() * tags.length)];
+          stage.appendChild(pop);
+          setTimeout(() => pop.remove(), 950);
+        }
+      },
+
+      toggleAutoMuyu() {
+        const btn = document.getElementById('muyu-auto-btn');
+        if (this.muyuAutoTimer) {
+          clearInterval(this.muyuAutoTimer);
+          this.muyuAutoTimer = null;
+          if (btn) btn.innerText = '自动挂机';
           return;
         }
-        navigator.clipboard.writeText(displayEl.value).then(() => {
-          this.showToast('✅ 强密码已复制到剪贴板！');
-        }).catch(() => {
-          alert(`密码: ${displayEl.value}`);
+        if (btn) btn.innerText = '停止挂机';
+        this.hitMuyu();
+        this.muyuAutoTimer = setInterval(() => this.hitMuyu(), 900);
+      },
+
+      // ==================== 3. 无限解压气泡膜 ====================
+      bubblePoppedTotal: 0,
+
+      initBubbles() {
+        this.bubblePoppedTotal = parseInt(localStorage.getItem('3c_bubble_total') || '0', 10) || 0;
+        const totalEl = document.getElementById('bubble-total-count');
+        if (totalEl) totalEl.innerText = String(this.bubblePoppedTotal);
+        this.resetBubbles(false);
+      },
+
+      playPopSound() {
+        try {
+          const ctx = this._getAudioCtx();
+          if (!ctx) return;
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(360 + Math.random() * 140, now);
+          osc.frequency.exponentialRampToValueAtTime(90, now + 0.055);
+          gain.gain.setValueAtTime(0.28, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.065);
+        } catch (e) {}
+      },
+
+      resetBubbles(notify = true) {
+        const grid = document.getElementById('bubble-wrap-grid');
+        if (!grid) return;
+        grid.innerHTML = Array.from({ length: 18 }).map((_, i) => `
+          <button onclick="FunSuite.popBubble(this)" data-popped="0"
+            class="h-8 rounded-full bg-gradient-to-br from-sky-100 to-blue-200 dark:from-sky-900/60 dark:to-blue-800/60 border border-sky-300/80 dark:border-sky-600/60 shadow-inner flex items-center justify-center text-[10px] text-sky-500 hover:scale-105 active:scale-90 transition">
+            ●
+          </button>
+        `).join('');
+        if (notify) this.showToast('🫧 已换上一张全新解压气泡膜！');
+      },
+
+      popBubble(btn) {
+        if (!btn || btn.dataset.popped === '1') return;
+        btn.dataset.popped = '1';
+        btn.className = 'h-8 rounded-full bg-gray-100/70 dark:bg-gray-800/40 border border-dashed border-gray-300 dark:border-gray-700 text-[10px] text-gray-300 dark:text-gray-600 scale-90 transition';
+        btn.innerText = '✓';
+        this.playPopSound();
+        this.bubblePoppedTotal += 1;
+        localStorage.setItem('3c_bubble_total', String(this.bubblePoppedTotal));
+        const totalEl = document.getElementById('bubble-total-count');
+        if (totalEl) totalEl.innerText = String(this.bubblePoppedTotal);
+
+        const grid = document.getElementById('bubble-wrap-grid');
+        if (grid && !grid.querySelector('button[data-popped="0"]')) {
+          setTimeout(() => this.resetBubbles(true), 320);
+        }
+      },
+
+      // ==================== 4. 摸鱼版 2048 迷你游戏 ====================
+      board2048: [],
+      score2048: 0,
+      best2048: 0,
+
+      init2048() {
+        this.best2048 = parseInt(localStorage.getItem('3c_2048_best') || '0', 10) || 0;
+        this.reset2048();
+        window.addEventListener('keydown', (e) => {
+          const drawer = document.getElementById('fun-drawer');
+          const playPanel = document.getElementById('fun-panel-play');
+          if (!drawer || drawer.classList.contains('drawer-closed') || !playPanel || playPanel.classList.contains('hidden')) return;
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+            this.move2048(e.key.replace('Arrow', '').toLowerCase());
+          }
         });
       },
 
-      // 3. 文本与字数统计 (夏柔 api-zishu)
-      countText() {
-        const input = document.getElementById('text-count-input');
-        const text = input ? input.value : '';
-        const total = text.length;
-        const cnMatches = text.match(/[\u4e00-\u9fa5]/g);
-        const cnCount = cnMatches ? cnMatches.length : 0;
-        const enMatches = text.match(/[a-zA-Z0-9]/g);
-        const enCount = enMatches ? enMatches.length : 0;
-        const lines = text ? text.split('\n').length : 0;
-
-        const elTotal = document.getElementById('cnt-total');
-        const elCn = document.getElementById('cnt-cn');
-        const elEn = document.getElementById('cnt-en');
-        const elLines = document.getElementById('cnt-lines');
-
-        if (elTotal) elTotal.innerText = total;
-        if (elCn) elCn.innerText = cnCount;
-        if (elEn) elEn.innerText = enCount;
-        if (elLines) elLines.innerText = lines;
+      reset2048() {
+        this.board2048 = [
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ];
+        this.score2048 = 0;
+        this._spawnTile2048();
+        this._spawnTile2048();
+        this.render2048();
       },
 
-      // 4. 手机号归属地 (夏柔官方 API)
-      async queryPhoneGuishu() {
-        const input = document.getElementById('phone-input-query');
-        const phone = input ? input.value.trim() : '';
-        if (!phone || phone.length < 7) {
-          alert('请输入正确的手机号或前7位号段！');
+      _spawnTile2048() {
+        const empty = [];
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            if (this.board2048[r][c] === 0) empty.push([r, c]);
+          }
+        }
+        if (!empty.length) return;
+        const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+        this.board2048[r][c] = Math.random() < 0.85 ? 2 : 4;
+      },
+
+      move2048(dir) {
+        let moved = false;
+        const slideLine = (line) => {
+          const nz = line.filter(x => x !== 0);
+          const out = [];
+          for (let i = 0; i < nz.length; i++) {
+            if (i + 1 < nz.length && nz[i] === nz[i + 1]) {
+              const merged = nz[i] * 2;
+              out.push(merged);
+              this.score2048 += merged;
+              i++;
+            } else {
+              out.push(nz[i]);
+            }
+          }
+          while (out.length < 4) out.push(0);
+          return out;
+        };
+
+        for (let i = 0; i < 4; i++) {
+          let orig = [];
+          if (dir === 'left') orig = this.board2048[i].slice();
+          else if (dir === 'right') orig = this.board2048[i].slice().reverse();
+          else if (dir === 'up') orig = [0, 1, 2, 3].map(r => this.board2048[r][i]);
+          else if (dir === 'down') orig = [3, 2, 1, 0].map(r => this.board2048[r][i]);
+
+          const next = slideLine(orig);
+          if (next.some((v, idx) => v !== orig[idx])) moved = true;
+
+          if (dir === 'left') this.board2048[i] = next;
+          else if (dir === 'right') this.board2048[i] = next.slice().reverse();
+          else if (dir === 'up') next.forEach((v, r) => { this.board2048[r][i] = v; });
+          else if (dir === 'down') next.slice().reverse().forEach((v, r) => { this.board2048[r][i] = v; });
+        }
+
+        if (moved) {
+          if (this.score2048 > this.best2048) {
+            this.best2048 = this.score2048;
+            localStorage.setItem('3c_2048_best', String(this.best2048));
+          }
+          this._spawnTile2048();
+          this.render2048();
+        }
+      },
+
+      render2048() {
+        const grid = document.getElementById('game-2048-grid');
+        const scoreEl = document.getElementById('game-2048-score');
+        const bestEl = document.getElementById('game-2048-best');
+        if (scoreEl) scoreEl.innerText = String(this.score2048);
+        if (bestEl) bestEl.innerText = String(this.best2048);
+        if (!grid) return;
+
+        const colorMap = {
+          0: 'bg-gray-200/70 dark:bg-gray-700/60 text-transparent',
+          2: 'bg-amber-50 text-gray-800',
+          4: 'bg-amber-100 text-gray-800',
+          8: 'bg-orange-300 text-white',
+          16: 'bg-orange-400 text-white',
+          32: 'bg-rose-400 text-white',
+          64: 'bg-rose-500 text-white',
+          128: 'bg-yellow-400 text-white',
+          256: 'bg-yellow-500 text-white',
+          512: 'bg-emerald-500 text-white',
+          1024: 'bg-blue-500 text-white',
+          2048: 'bg-indigo-600 text-white'
+        };
+        grid.innerHTML = this.board2048.flat().map(val => {
+          const cls = colorMap[val] || 'bg-purple-600 text-white';
+          return `<div class="h-11 rounded-lg font-mono font-black text-sm flex items-center justify-center shadow-sm ${cls}">${val || ''}</div>`;
+        }).join('');
+      },
+
+      // ==================== 5. Web Audio 摸鱼白噪音混音台 ====================
+      noiseNodes: {},
+
+      toggleNoise(kind) {
+        if (this.noiseNodes[kind]) {
+          this.stopNoise(kind);
           return;
         }
-        const resBox = document.getElementById('phone-query-result');
-        const resText = document.getElementById('phone-result-text');
-        if (resText) resText.innerText = '正在向夏柔接口查询...';
-        if (resBox) resBox.classList.remove('hidden');
+        const ctx = this._getAudioCtx();
+        if (!ctx) return;
 
-        try {
-          const url = `https://v.api.aa1.cn/api/phone/guishu-api.php?phone=${encodeURIComponent(phone)}`;
-          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(url));
-          if (res.ok) {
-            const json = await res.json();
-            if (json && json.data) {
-              const area = [json.data.province, json.data.city].filter(Boolean).join(' ');
-              const sp = json.data.sp || '';
-              const txt = [area, sp].filter(Boolean).join(' · ');
-              if (resText) resText.innerText = txt || '未查询到归属信息';
-              return;
-            }
-          }
-        } catch (e) {}
-        if (resText) resText.innerText = '查询失败或接口繁忙';
-      },
-
-      // 5. 二维码生成
-      generateQRCode() {
-        const input = document.getElementById('qr-input-text');
-        const defaultUrl = window.location.origin;
-        if (input && !input.value.trim()) input.value = defaultUrl;
-        const val = input ? (input.value.trim() || defaultUrl) : defaultUrl;
-        const container = document.getElementById('qrcode-canvas-wrapper');
-        if (!container) return;
-        container.innerHTML = '';
-
-        if (typeof QRCode !== 'undefined') {
-          try {
-            new QRCode(container, {
-              text: val,
-              width: 140,
-              height: 140,
-              colorDark: "#1E1F22",
-              colorLight: "#FFFFFF",
-              correctLevel: QRCode.CorrectLevel.M
-            });
-            return;
-          } catch (e) {}
-        }
-        const img = document.createElement('img');
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(val)}`;
-        img.className = "w-[140px] h-[140px] rounded shadow-sm";
-        container.appendChild(img);
-      },
-
-      downloadQRCode() {
-        const canvas = document.querySelector('#qrcode-canvas-wrapper canvas');
-        if (canvas) {
-          const a = document.createElement('a');
-          a.download = '3C_Matrix_二维码.png';
-          a.href = canvas.toDataURL('image/png');
-          a.click();
+        if (kind === 'keyboard') {
+          const timer = setInterval(() => {
+            try {
+              const now = ctx.currentTime;
+              const bufSize = Math.floor(ctx.sampleRate * 0.028);
+              const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+              const ch = buf.getChannelData(0);
+              for (let i = 0; i < bufSize; i++) ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.25));
+              const src = ctx.createBufferSource();
+              src.buffer = buf;
+              const filter = ctx.createBiquadFilter();
+              filter.type = 'bandpass';
+              filter.frequency.value = 1400 + Math.random() * 900;
+              const g = ctx.createGain();
+              const vol = parseFloat(document.getElementById('noise-vol-keyboard')?.value || '0.35');
+              g.gain.value = vol;
+              src.connect(filter);
+              filter.connect(g);
+              g.connect(ctx.destination);
+              src.start(now);
+            } catch (e) {}
+          }, 135);
+          this.noiseNodes[kind] = { timer };
         } else {
-          const img = document.querySelector('#qrcode-canvas-wrapper img');
-          if (img && img.src) window.open(img.src, '_blank');
+          const bufLen = ctx.sampleRate * 2;
+          const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          let lastOut = 0;
+          for (let i = 0; i < bufLen; i++) {
+            const white = Math.random() * 2 - 1;
+            lastOut = (lastOut + 0.04 * white) / 1.04;
+            data[i] = kind === 'ocean' ? lastOut * 2.2 : white * 0.35;
+          }
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.loop = true;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = kind === 'ocean' ? 420 : 1200;
+          const gain = ctx.createGain();
+          const vol = parseFloat(document.getElementById(`noise-vol-${kind}`)?.value || '0.3');
+          gain.gain.value = vol;
+          src.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          src.start();
+          this.noiseNodes[kind] = { src, gain };
+        }
+        this._updateNoiseBtnUI(kind, true);
+      },
+
+      setNoiseVolume(kind, val) {
+        const node = this.noiseNodes[kind];
+        if (node && node.gain) {
+          node.gain.gain.value = parseFloat(val);
         }
       },
 
-      // 6. IP 定位与网络环境查询
-      async fetchIpInfo() {
-        const ipVal = document.getElementById('fun-ip-val');
-        const ipLoc = document.getElementById('fun-ip-location');
-        try {
-          const res = await fetch('/api/geo');
-          if (res.ok) {
-            const g = await res.json();
-            if (g && g.ip) {
-              if (ipVal) ipVal.innerText = g.ip;
-              const locStr = g.isp || [g.country, g.region, g.city].filter(Boolean).join(' · ') || '公网正常';
-              if (ipLoc) ipLoc.innerText = locStr;
-              return;
-            }
-          }
-        } catch (e) {}
+      stopNoise(kind) {
+        const node = this.noiseNodes[kind];
+        if (!node) return;
+        if (node.timer) clearInterval(node.timer);
+        if (node.src) {
+          try { node.src.stop(); } catch (e) {}
+        }
+        delete this.noiseNodes[kind];
+        this._updateNoiseBtnUI(kind, false);
+      },
 
-        try {
-          const res = await fetch('https://ipwho.is/');
-          if (res.ok) {
-            const data = await res.json();
-            if (ipVal) ipVal.innerText = data.ip || '未知';
-            if (ipLoc) ipLoc.innerText = [data.country, data.region, data.city].filter(Boolean).join(' · ') || '公网正常';
-            return;
-          }
-        } catch (e) {}
+      _updateNoiseBtnUI(kind, active) {
+        const btn = document.getElementById(`noise-btn-${kind}`);
+        if (!btn) return;
+        btn.innerText = active ? '播放中' : '开启';
+        btn.className = active
+          ? 'px-2.5 py-1 rounded-md text-[11px] bg-emerald-500 text-white font-semibold shadow-sm'
+          : 'px-2.5 py-1 rounded-md text-[11px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium';
+      },
 
-        if (ipVal) ipVal.innerText = '127.0.0.1';
-        if (ipLoc) ipLoc.innerText = '本地网络环境';
+      // ==================== 6. 老板键一键伪装报表 (F9) ====================
+      bossMode: false,
+
+      initBossKey() {
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'F9') {
+            e.preventDefault();
+            this.toggleBossKey();
+          } else if (e.key === 'Escape' && this.bossMode) {
+            this.toggleBossKey(false);
+          }
+        });
+      },
+
+      toggleBossKey(forceState) {
+        this.bossMode = typeof forceState === 'boolean' ? forceState : !this.bossMode;
+        const overlay = document.getElementById('boss-key-overlay');
+        if (overlay) overlay.classList.toggle('hidden', !this.bossMode);
+        if (this.bossMode) {
+          this.closeDrawer();
+          ['rain', 'ocean', 'keyboard'].forEach(k => this.stopNoise(k));
+        }
       },
 
       // ==================== 娱乐视界 (短视频与治愈美图) ====================
@@ -2859,10 +3112,6 @@
         if (drawer) drawer.classList.remove('drawer-closed');
         if (backdrop) backdrop.classList.remove('backdrop-hidden');
         if (defaultTab) this.switchTab(defaultTab);
-        if (defaultTab === 'tools') {
-          this.generateQRCode();
-          this.fetchIpInfo();
-        }
       },
 
       closeDrawer() {
@@ -2884,10 +3133,12 @@
       },
 
       switchTab(tab) {
-        ['daily', 'quote', 'media', 'tools'].forEach(t => {
+        const aliasMap = { quote: 'hot', tools: 'play' };
+        const normalized = aliasMap[tab] || tab;
+        ['daily', 'play', 'hot', 'media'].forEach(t => {
           const panel = document.getElementById(`fun-panel-${t}`);
           const btn = document.getElementById(`fun-tab-btn-${t}`);
-          if (t === tab) {
+          if (t === normalized) {
             if (panel) panel.classList.remove('hidden');
             if (btn) btn.className = "flex-1 py-3 text-center border-b-2 border-blue-600 text-blue-600 transition flex items-center justify-center space-x-1";
           } else {
@@ -2895,10 +3146,6 @@
             if (btn) btn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1";
           }
         });
-        if (tab === 'tools') {
-          this.generateQRCode();
-          this.fetchIpInfo();
-        }
       },
 
       initBadgeVisibility() {
@@ -3685,62 +3932,61 @@
   <!-- ==================== 摸鱼百宝箱毛玻璃抽屉 ==================== -->
   <div id="fun-drawer-backdrop" onclick="FunSuite.closeDrawer()" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300 backdrop-hidden"></div>
 
-  <aside id="fun-drawer" class="fixed top-0 right-0 h-full w-[400px] max-w-[90vw] bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl border-l border-gray-200 dark:border-gray-800 shadow-2xl z-50 flex flex-col justify-between drawer-closed select-none transition-transform duration-300">
+  <aside id="fun-drawer" class="fixed top-0 right-0 h-full w-[420px] max-w-[92vw] bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl border-l border-gray-200 dark:border-gray-800 shadow-2xl z-50 flex flex-col justify-between drawer-closed select-none transition-transform duration-300">
     <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-indigo-50/30 dark:from-gray-800/50 dark:to-gray-800/30">
       <div class="flex items-center space-x-2.5">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md text-base">🐱</div>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md text-base">🐟</div>
         <div>
           <div class="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center space-x-1.5">
             <span>3C 摸鱼与解压舱</span>
-            <span class="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-normal">夏柔API增强</span>
+            <span class="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full font-normal">带薪回血</span>
           </div>
-          <div class="text-[11px] text-gray-400">打工人专属治愈小站 · 业务0干扰</div>
+          <div class="text-[11px] text-gray-400">按 F9 一键伪装工作报表 · 业务0干扰</div>
         </div>
       </div>
-      <button onclick="FunSuite.closeDrawer()" class="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition">
-        <i class="fa-solid fa-xmark text-sm"></i>
-      </button>
+      <div class="flex items-center space-x-1.5">
+        <button onclick="FunSuite.toggleBossKey(true)" class="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300 text-[11px] font-bold border border-red-200/70 dark:border-red-800/60 transition" title="快捷键 F9：一键切换高仿库存核对表">
+          🚨 老板键
+        </button>
+        <button onclick="FunSuite.closeDrawer()" class="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
     </div>
 
-    <div class="flex border-b border-gray-100 dark:border-gray-800 px-4 text-xs font-semibold bg-gray-50/50 dark:bg-gray-800/40">
+    <div class="flex border-b border-gray-100 dark:border-gray-800 px-3 text-xs font-semibold bg-gray-50/50 dark:bg-gray-800/40">
       <button id="fun-tab-btn-daily" onclick="FunSuite.switchTab('daily')" class="flex-1 py-3 text-center border-b-2 border-blue-600 text-blue-600 transition flex items-center justify-center space-x-1">
-        <span>📅 摸鱼速报</span>
+        <span>⏱️ 摸鱼总控</span>
       </button>
-      <button id="fun-tab-btn-quote" onclick="FunSuite.switchTab('quote')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
-        <span>💬 解压文案</span>
+      <button id="fun-tab-btn-play" onclick="FunSuite.switchTab('play')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
+        <span>🎮 解压游乐</span>
+      </button>
+      <button id="fun-tab-btn-hot" onclick="FunSuite.switchTab('hot')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
+        <span>🔥 吃瓜段子</span>
       </button>
       <button id="fun-tab-btn-media" onclick="FunSuite.switchTab('media')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
-        <span>🎬 娱乐视界</span>
-      </button>
-      <button id="fun-tab-btn-tools" onclick="FunSuite.switchTab('tools')" class="flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1">
-        <span>🛠️ 实用工具</span>
+        <span>🎧 氛围视界</span>
       </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-      <!-- Tab 1: 摸鱼速报 -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+      <!-- Tab 1: 摸鱼总控 -->
       <div id="fun-panel-daily" class="space-y-3.5">
-                <!-- 今天吃什么？纠结终结者 (美食摇号机) -->
-        <div class="p-3 bg-gradient-to-r from-orange-500 via-amber-500 to-rose-500 rounded-xl text-white shadow-md">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-bold flex items-center"><i class="fa-solid fa-utensils mr-1.5"></i>今天吃什么？· 纠结终结者</span>
-            <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-mono" id="food-meal-type">午餐推荐</span>
-          </div>
-          <div class="bg-white/15 backdrop-blur-md rounded-lg p-2.5 flex items-center justify-between">
-            <div class="flex items-center space-x-2.5">
-              <span id="food-emoji" class="text-2xl">🍗</span>
-              <div>
-                <div id="food-name" class="text-sm font-black tracking-tight">黄焖鸡米饭 (加微辣豆皮)</div>
-                <div id="food-comment" class="text-[10px] text-orange-100">经典下饭神器，打工人高能碳水之光</div>
-              </div>
+        <!-- 💰 带薪摸鱼收入实时跳动器 -->
+        <div class="p-3.5 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 rounded-2xl text-white shadow-md relative overflow-hidden">
+          <div class="flex items-center justify-between text-[11px] text-amber-100 mb-1.5">
+            <span class="font-bold flex items-center"><i class="fa-solid fa-coins mr-1.5"></i>今日带薪摸鱼已入账</span>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-[10px]">月薪:</span>
+              <input type="number" id="salary-monthly-input" value="8000" min="1000" step="500" onchange="FunSuite.saveSalaryConfig()" class="w-16 px-1.5 py-0.5 rounded bg-black/20 text-white text-[11px] font-mono outline-none text-right">
+              <button onclick="FunSuite.toggleSalaryPrivacy()" class="px-1.5 py-0.5 rounded bg-black/20 hover:bg-black/30 text-[10px]" title="隐藏/显示金额">👁️</button>
             </div>
-            <button onclick="FunSuite.rollFood()" class="px-2.5 py-1.5 bg-white text-orange-600 rounded-lg font-bold text-xs shadow-sm hover:bg-orange-50 active:scale-95 transition flex items-center flex-shrink-0 ml-2">
-              <i class="fa-solid fa-dice mr-1"></i>摇一摇
-            </button>
           </div>
+          <div id="fish-earned-today" class="text-2xl font-black tracking-tight font-mono">¥ 0.00</div>
+          <div id="fish-salary-rate" class="text-[10px] text-amber-100/90 mt-1 font-mono">计算中...</div>
         </div>
 
-        <!-- 下班倒计时卡片 -->
+        <!-- 下班倒计时 + 摸鱼日历紧凑双卡 -->
         <div class="p-3 bg-gradient-to-r from-emerald-500 via-teal-600 to-teal-700 rounded-xl text-white shadow-md flex items-center justify-between">
           <div>
             <div class="text-[10px] text-teal-100 flex items-center space-x-1.5">
@@ -3756,229 +4002,215 @@
           <div class="text-3xl opacity-30 select-none">🏃‍♂️</div>
         </div>
 
-        <!-- 摸鱼倒计时大卡片 (15号发薪日) -->
         <div class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-700 text-white shadow-md relative overflow-hidden">
-          <div class="absolute -right-4 -bottom-4 text-6xl opacity-15 select-none">🏖️</div>
           <div class="text-[11px] text-blue-100 flex items-center justify-between mb-2">
             <span class="font-bold flex items-center"><i class="fa-solid fa-mug-hot mr-1.5"></i>摸鱼日历</span>
-            <span id="fish-today-date" class="font-mono opacity-80">2026-10-31</span>
+            <span id="fish-today-date" class="font-mono opacity-80">2026-11-18</span>
           </div>
-          <div class="grid grid-cols-2 gap-2 text-center my-2">
-            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2.5">
+          <div class="grid grid-cols-2 gap-2 text-center my-1">
+            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2">
               <div class="text-[10px] text-blue-100">距离周末(休息)</div>
-              <div id="fish-weekend-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
+              <div id="fish-weekend-days" class="text-lg font-black mt-0.5 tracking-tight">--</div>
             </div>
-            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2.5">
+            <div class="bg-white/15 backdrop-blur-md rounded-xl p-2">
               <div class="text-[10px] text-blue-100">距离15号发薪日</div>
-              <div id="fish-salary-days" class="text-xl font-black mt-0.5 tracking-tight">--</div>
+              <div id="fish-salary-days" class="text-lg font-black mt-0.5 tracking-tight">--</div>
             </div>
-          </div>
-          <div class="text-[11px] text-blue-100 bg-black/20 rounded-lg p-2 mt-2 leading-relaxed flex items-center justify-between">
-            <span id="fish-wisdom">今日宜：整理 3C 机型；忌：周五下午发版。</span>
           </div>
         </div>
 
         <!-- 实时天气胶囊 (IP 自动定位) -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
           <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-cloud-sun mr-1.5 text-amber-500"></i>实时天气胶囊</span>
+            <span class="flex items-center"><i class="fa-solid fa-cloud-sun mr-1.5 text-amber-500"></i>IP 自动定位天气</span>
             <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono font-bold">📍 定位中...</span>
           </div>
           <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="flex items-center space-x-3">
               <span id="fun-weather-icon" class="text-2xl">🌤️</span>
               <div>
-                <div id="fun-weather-temp" class="text-sm font-bold text-gray-800 dark:text-gray-100">26℃ · 晴天微风</div>
-                <div id="fun-weather-tip" class="text-[10px] text-gray-400 mt-0.5">微风徐徐，舒适宜人 · 紫外线中等</div>
+                <div id="fun-weather-temp" class="text-sm font-bold text-gray-800 dark:text-gray-100">正在获取天气...</div>
+                <div id="fun-weather-tip" class="text-[10px] text-gray-400 mt-0.5">每 30 分钟自动更新</div>
               </div>
             </div>
             <button onclick="FunSuite.fetchWeather(true)" class="p-1.5 text-gray-400 hover:text-blue-600 text-xs" title="刷新天气"><i class="fa-solid fa-rotate-right"></i></button>
           </div>
         </div>
 
-        <!-- 知乎热榜要闻 -->
+        <!-- 今天吃什么？纠结终结者 -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
-          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-fire mr-1.5 text-red-500"></i>今日知乎热榜要闻</span>
-            <button onclick="FunSuite.fetchNews(true)" class="text-[11px] text-blue-600 hover:underline flex items-center"><i class="fa-solid fa-arrows-rotate mr-1"></i>换一批</button>
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-gray-700 dark:text-gray-200 flex items-center"><i class="fa-solid fa-utensils mr-1.5 text-orange-500"></i>今天吃什么？纠结终结者</span>
+            <span class="text-[10px] bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-300 px-1.5 py-0.5 rounded-full font-mono" id="food-meal-type">午餐推荐</span>
           </div>
-          <div id="fun-news-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-            <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300">正在获取最新热榜...</div>
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <span id="food-emoji" class="text-2xl">🍗</span>
+              <div class="min-w-0">
+                <div id="food-name" class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">黄焖鸡米饭 (加微辣豆皮)</div>
+                <div id="food-comment" class="text-[10px] text-gray-400 truncate">经典下饭神器，打工人高能碳水之光</div>
+              </div>
+            </div>
+            <button onclick="FunSuite.rollFood()" class="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-[11px] shadow-sm active:scale-95 transition flex items-center flex-shrink-0 ml-2">
+              <i class="fa-solid fa-dice mr-1"></i>摇号
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Tab 2: 解压文案 -->
-      <div id="fun-panel-quote" class="space-y-3.5 hidden">
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="FunSuite.setQuoteCategory('all')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">全部综合</button>
-          <button onclick="FunSuite.setQuoteCategory('shenhuifu')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">神回复(夏柔)</button>
-          <button onclick="FunSuite.setQuoteCategory('kfc')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">疯狂星期四</button>
-          <button onclick="FunSuite.setQuoteCategory('wyy')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">网易云热评</button>
-          <button onclick="FunSuite.setQuoteCategory('poison')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">毒鸡汤</button>
-          <button onclick="FunSuite.setQuoteCategory('fortune')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">暴富好运</button>
-          <button onclick="FunSuite.setQuoteCategory('dog')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">舔狗日记</button>
-          <button onclick="FunSuite.setQuoteCategory('work')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">打工人段子</button>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-gradient-to-tr from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 border border-orange-100 dark:border-gray-700 min-h-[160px] flex flex-col justify-between shadow-sm relative">
-          <span class="text-3xl text-orange-200 dark:text-gray-600 select-none font-serif leading-none">“</span>
-          <p id="fun-quote-display" class="text-sm font-medium text-gray-800 dark:text-gray-100 leading-relaxed my-2 px-1">
-            代码无 Bug，上线秒通过，下班准点撤！
-          </p>
-          <div class="flex items-center justify-between pt-2 border-t border-orange-100/60 dark:border-gray-700 text-[11px]">
-            <span id="fun-quote-from" class="text-gray-400">来自: 夏柔公益开放API (api.aa1.cn)</span>
-            <div class="flex space-x-2">
-              <button onclick="FunSuite.copyQuote()" class="text-blue-600 hover:text-blue-700 flex items-center"><i class="fa-regular fa-copy mr-1"></i>复制</button>
-              <button onclick="FunSuite.nextQuote(true)" class="text-orange-600 hover:text-orange-700 font-semibold flex items-center"><i class="fa-solid fa-dice mr-1"></i>换一条</button>
+      <!-- Tab 2: 解压游乐 (电子木鱼 + 解压气泡膜 + 摸鱼2048) -->
+      <div id="fun-panel-play" class="space-y-3.5 hidden">
+        <!-- 1. 赛博电子木鱼 -->
+        <div id="muyu-stage" class="relative p-3.5 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800/80 rounded-2xl border border-amber-200/70 dark:border-gray-700 space-y-2.5 overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-800 dark:text-gray-100 flex items-center">🪵 赛博电子木鱼</span>
+            <div class="flex items-center space-x-2">
+              <span class="text-[11px] font-mono text-amber-600 dark:text-amber-400">功德: <b id="muyu-total-count">0</b></span>
+              <button id="muyu-auto-btn" onclick="FunSuite.toggleAutoMuyu()" class="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-semibold transition">自动挂机</button>
             </div>
           </div>
-        </div>
-
-        <!-- 历史上的今天卡片 (带换一条刷新) -->
-        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
-          <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-landmark mr-1.5 text-indigo-500"></i>历史上的今天</span>
-            <button onclick="FunSuite.nextHistory()" class="text-[11px] text-indigo-600 hover:underline flex items-center"><i class="fa-solid fa-rotate mr-1"></i>换一条</button>
-          </div>
-          <div id="fun-history-today" class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-            载入中...
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 3: 娱乐视界 (短视频与治愈美图) -->
-      <div id="fun-panel-media" class="space-y-3.5 hidden">
-        <div class="flex items-center justify-between">
-          <span class="font-bold text-gray-700 dark:text-gray-200 flex items-center"><i class="fa-solid fa-film mr-1.5 text-pink-500"></i>解压小剧场</span>
-          <div class="flex space-x-1.5">
-            <button id="media-mode-video" onclick="FunSuite.switchMediaMode('video')" class="px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium">短视频</button>
-            <button id="media-mode-pic" onclick="FunSuite.switchMediaMode('pic')" class="px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">治愈美图</button>
-          </div>
-        </div>
-
-        <div id="media-video-container" class="rounded-xl overflow-hidden bg-black aspect-[9/14] max-h-72 flex items-center justify-center relative shadow-inner">
-          <video id="fun-video-player" referrerpolicy="no-referrer" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
-          <div id="fun-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-4 text-center">
-            <i class="fa-solid fa-circle-play text-4xl text-pink-500 mb-2 hover:scale-110 transition cursor-pointer" onclick="FunSuite.loadNextVideo()"></i>
-            <span class="text-xs text-gray-300">默认已静音 · 点击播放高清短视频</span>
-          </div>
-        </div>
-
-        <div id="media-pic-container" class="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[9/12] max-h-72 hidden relative flex items-center justify-center">
-          <img id="fun-pic-player" referrerpolicy="no-referrer" class="w-full h-full object-cover" src="" alt="治愈美图">
-        </div>
-
-        <div class="flex space-x-2">
-          <button onclick="FunSuite.loadNextMedia()" class="flex-1 py-2 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
-            <i class="fa-solid fa-shuffle mr-1.5"></i>换一个看看
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab 4: 实用工具 (一键二维码 + 手机号归属地 + IP环境) -->
-      <div id="fun-panel-tools" class="space-y-3.5 hidden">
-        <!-- 手机号归属地与运营商查询 (夏柔官方API) -->
-        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-mobile-screen-button mr-1.5 text-indigo-500"></i>3C手机号归属地查询</span>
-            <span class="text-[10px] text-gray-400">夏柔官方API</span>
-          </div>
-          <div class="flex space-x-2">
-            <input type="text" id="phone-input-query" placeholder="输入11位手机号..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-indigo-500 font-mono">
-            <button onclick="FunSuite.queryPhoneGuishu()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">查询</button>
-          </div>
-          <div id="phone-query-result" class="hidden p-2.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 font-mono text-[11px] flex justify-between">
-            <span class="text-gray-500">归属信息:</span>
-            <span id="phone-result-text" class="font-bold text-indigo-600">--</span>
-          </div>
-        </div>
-
-        <!-- 一键二维码生成器 -->
-        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-qrcode mr-1.5 text-blue-600"></i>一键二维码生成</span>
-            <span class="text-[10px] text-gray-400">手机扫码传数据</span>
-          </div>
-          <div class="flex space-x-2">
-            <input type="text" id="qr-input-text" value="" placeholder="输入文本或网址..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500">
-            <button onclick="FunSuite.generateQRCode()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">生成</button>
-          </div>
-          <div class="flex flex-col items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
-            <div id="qrcode-canvas-wrapper" class="p-2 bg-white rounded shadow-sm"></div>
-            <button onclick="FunSuite.downloadQRCode()" class="mt-2.5 text-[11px] text-blue-600 hover:underline flex items-center">
-              <i class="fa-solid fa-download mr-1"></i>保存二维码图片
+          <div class="flex items-center justify-center py-1">
+            <button id="muyu-btn" onclick="FunSuite.hitMuyu()" class="w-24 h-20 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white shadow-lg flex flex-col items-center justify-center transition-transform duration-75 cursor-pointer">
+              <span class="text-3xl leading-none">🪘</span>
+              <span class="text-[10px] font-bold mt-1 tracking-wider">点击积功德</span>
             </button>
           </div>
         </div>
 
-        <!-- IP与网络环境 -->
-        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-1.5">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-network-wired mr-1.5 text-emerald-500"></i>当前网络环境</span>
-            <button onclick="FunSuite.fetchIpInfo()" class="text-gray-400 hover:text-blue-600 text-xs"><i class="fa-solid fa-rotate-right"></i></button>
+        <!-- 2. 无限解压气泡膜 -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-800 dark:text-gray-100">🫧 无限解压气泡膜</span>
+            <div class="flex items-center space-x-2">
+              <span class="text-[11px] font-mono text-sky-600">已捏破 <b id="bubble-total-count">0</b> 颗</span>
+              <button onclick="FunSuite.resetBubbles(true)" class="text-[10px] text-blue-600 hover:underline">换新板</button>
+            </div>
           </div>
-          <div class="bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 space-y-1 font-mono text-[11px]">
-            <div class="flex justify-between text-gray-600 dark:text-gray-300"><span>公网 IP:</span><span id="fun-ip-val" class="font-bold text-blue-600">正在获取...</span></div>
-            <div class="flex justify-between text-gray-600 dark:text-gray-300"><span>归属地:</span><span id="fun-ip-location">查询中...</span></div>
+          <div id="bubble-wrap-grid" class="grid grid-cols-6 gap-1.5"></div>
+        </div>
+
+        <!-- 3. 摸鱼版 2048 -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-800 dark:text-gray-100">🔢 摸鱼 2048 <span class="text-[10px] font-normal text-gray-400">(支持方向键)</span></span>
+            <div class="flex items-center space-x-2 font-mono text-[10px]">
+              <span class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">分:<b id="game-2048-score" class="text-blue-600 ml-0.5">0</b></span>
+              <span class="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">最高:<b id="game-2048-best" class="text-amber-600 ml-0.5">0</b></span>
+              <button onclick="FunSuite.reset2048()" class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 font-sans font-semibold">重开</button>
+            </div>
+          </div>
+          <div id="game-2048-grid" class="grid grid-cols-4 gap-1.5 p-2 rounded-xl bg-gray-300/60 dark:bg-gray-900/60"></div>
+          <div class="grid grid-cols-4 gap-1.5 pt-0.5">
+            <button onclick="FunSuite.move2048('left')" class="py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50 font-bold">←</button>
+            <button onclick="FunSuite.move2048('up')" class="py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50 font-bold">↑</button>
+            <button onclick="FunSuite.move2048('down')" class="py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50 font-bold">↓</button>
+            <button onclick="FunSuite.move2048('right')" class="py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-blue-50 font-bold">→</button>
           </div>
         </div>
-        <!-- QQ 高清头像与资料快查 (夏柔官方API) -->
-        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-brands fa-qq mr-1.5 text-blue-500"></i>QQ 高清头像与信息快查</span>
-            <span class="text-[10px] text-gray-400">夏柔官方API</span>
+      </div>
+
+      <!-- Tab 3: 吃瓜 & 段子 (三源实时热榜 + 精选语录) -->
+      <div id="fun-panel-hot" class="space-y-3.5 hidden">
+        <!-- 实时热榜吃瓜 -->
+        <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-700 dark:text-gray-200 flex items-center"><i class="fa-solid fa-fire mr-1.5 text-red-500"></i>摸鱼吃瓜热榜</span>
+            <button onclick="FunSuite.fetchNews(true)" class="text-[11px] text-blue-600 hover:underline flex items-center"><i class="fa-solid fa-arrows-rotate mr-1"></i>刷新</button>
           </div>
-          <div class="flex space-x-2">
-            <input type="text" id="qq-input-query" placeholder="输入任意 QQ 号..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500 font-mono">
-            <button onclick="FunSuite.queryQQAvatar()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex-shrink-0">查头像</button>
+          <div class="flex space-x-1.5">
+            <button id="hot-src-weibo" onclick="FunSuite.switchHotSource('weibo')" class="px-2.5 py-1 rounded-md text-[11px] bg-red-500 text-white font-semibold shadow-sm transition">微博热搜</button>
+            <button id="hot-src-zhihu" onclick="FunSuite.switchHotSource('zhihu')" class="px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">知乎热榜</button>
+            <button id="hot-src-60s" onclick="FunSuite.switchHotSource('60s')" class="px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">每日60秒早报</button>
           </div>
-          <div id="qq-query-result" class="hidden p-2.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <img id="qq-avatar-img" class="w-12 h-12 rounded-full border border-gray-200 shadow-sm object-cover" src="" alt="QQ头像">
-              <div>
-                <div class="font-bold text-gray-800 dark:text-gray-100 text-xs" id="qq-num-display">QQ: --</div>
-                <div class="text-[10px] text-gray-400 mt-0.5">640x640 超清大图</div>
+          <div id="fun-news-list" class="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+            <div class="p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300">正在获取最新热榜...</div>
+          </div>
+        </div>
+
+        <!-- 精选解压语录 -->
+        <div class="space-y-2">
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="FunSuite.setQuoteCategory('all')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-blue-50 text-blue-600 font-semibold border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">全部精选</button>
+            <button onclick="FunSuite.setQuoteCategory('shenhuifu')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">神回复</button>
+            <button onclick="FunSuite.setQuoteCategory('kfc')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">疯狂星期四</button>
+            <button onclick="FunSuite.setQuoteCategory('wyy')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">网易云热评</button>
+            <button onclick="FunSuite.setQuoteCategory('poison')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">毒鸡汤</button>
+            <button onclick="FunSuite.setQuoteCategory('work')" class="quote-cat-btn px-2.5 py-1 rounded-md text-[11px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">打工人段子</button>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-gradient-to-tr from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-800 border border-orange-100 dark:border-gray-700 min-h-[120px] flex flex-col justify-between shadow-sm">
+            <p id="fun-quote-display" class="text-xs font-medium text-gray-800 dark:text-gray-100 leading-relaxed my-1">
+              代码无 Bug，上线秒通过，下班准点撤！
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-orange-100/60 dark:border-gray-700 text-[10px]">
+              <span id="fun-quote-from" class="text-gray-400">出处: 一言 Hitokoto / 夏柔公益 API</span>
+              <div class="flex space-x-2">
+                <button onclick="FunSuite.copyQuote()" class="text-blue-600 hover:text-blue-700 flex items-center"><i class="fa-regular fa-copy mr-1"></i>复制</button>
+                <button onclick="FunSuite.nextQuote(true)" class="text-orange-600 hover:text-orange-700 font-semibold flex items-center"><i class="fa-solid fa-dice mr-1"></i>换一条</button>
               </div>
             </div>
-            <a id="qq-avatar-link" href="#" target="_blank" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 text-blue-600 text-[11px] rounded transition">
-              查看大图
-            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: 氛围 & 视界 (白噪音混音台 + 短视频/美图) -->
+      <div id="fun-panel-media" class="space-y-3.5 hidden">
+        <!-- 摸鱼白噪音混音台 -->
+        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-2.5">
+          <div class="font-bold text-gray-800 dark:text-gray-100 flex items-center justify-between">
+            <span>🎧 摸鱼白噪音混音台 <span class="text-[10px] font-normal text-gray-400">(纯原生零延迟)</span></span>
+          </div>
+          <div class="space-y-2 text-[11px]">
+            <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+              <span>🌧️ 窗外雨声</span>
+              <div class="flex items-center space-x-2">
+                <input id="noise-vol-rain" type="range" min="0.05" max="0.8" step="0.05" value="0.3" oninput="FunSuite.setNoiseVolume('rain', this.value)" class="w-20 accent-blue-500">
+                <button id="noise-btn-rain" onclick="FunSuite.toggleNoise('rain')" class="px-2.5 py-1 rounded-md text-[11px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium">开启</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+              <span>🌊 海岸浪涛</span>
+              <div class="flex items-center space-x-2">
+                <input id="noise-vol-ocean" type="range" min="0.05" max="0.8" step="0.05" value="0.3" oninput="FunSuite.setNoiseVolume('ocean', this.value)" class="w-20 accent-teal-500">
+                <button id="noise-btn-ocean" onclick="FunSuite.toggleNoise('ocean')" class="px-2.5 py-1 rounded-md text-[11px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium">开启</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+              <span>⌨️ 假装在忙键盘声</span>
+              <div class="flex items-center space-x-2">
+                <input id="noise-vol-keyboard" type="range" min="0.05" max="0.8" step="0.05" value="0.35" oninput="FunSuite.setNoiseVolume('keyboard', this.value)" class="w-20 accent-indigo-500">
+                <button id="noise-btn-keyboard" onclick="FunSuite.toggleNoise('keyboard')" class="px-2.5 py-1 rounded-md text-[11px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium">开启</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 安全强密码生成器 (夏柔密码生成器同款) -->
-        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2.5">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-key mr-1.5 text-amber-500"></i>安全强密码生成器</span>
-            <span class="text-[10px] text-gray-400">防暴力破解</span>
+        <!-- 解压小剧场 -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-gray-700 dark:text-gray-200 flex items-center"><i class="fa-solid fa-film mr-1.5 text-pink-500"></i>解压小剧场</span>
+            <div class="flex space-x-1.5">
+              <button id="media-mode-video" onclick="FunSuite.switchMediaMode('video')" class="px-2 py-0.5 rounded text-[11px] bg-blue-600 text-white font-medium">短视频</button>
+              <button id="media-mode-pic" onclick="FunSuite.switchMediaMode('pic')" class="px-2 py-0.5 rounded text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">治愈美图</button>
+            </div>
           </div>
-          <div class="flex items-center space-x-2">
-            <input type="text" id="gen-pwd-display" readonly placeholder="点击右侧生成强密码" class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-mono text-emerald-600 font-bold outline-none select-all">
-            <button onclick="FunSuite.generatePassword()" class="px-2.5 py-1.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 text-xs">生成</button>
-            <button onclick="FunSuite.copyPassword()" class="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-blue-50 text-blue-600 rounded-lg font-medium text-xs">复制</button>
-          </div>
-          <div class="flex items-center justify-between text-[11px] text-gray-500">
-            <span>长度: <b id="pwd-len-text">16</b> 位</span>
-            <input type="range" id="pwd-len-slider" min="8" max="32" value="16" oninput="document.getElementById('pwd-len-text').innerText = this.value" class="w-32 accent-amber-500">
-          </div>
-        </div>
 
-        <!-- 文本字数与行数统计 (夏柔 api-zishu) -->
-        <div class="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 space-y-2">
-          <div class="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between">
-            <span class="flex items-center"><i class="fa-solid fa-calculator mr-1.5 text-emerald-500"></i>文本与SKU字数统计</span>
-            <span class="text-[10px] text-gray-400">实时统计</span>
+          <div id="media-video-container" class="rounded-xl overflow-hidden bg-black aspect-[9/14] max-h-64 flex items-center justify-center relative shadow-inner">
+            <video id="fun-video-player" referrerpolicy="no-referrer" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
+            <div id="fun-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-4 text-center">
+              <i class="fa-solid fa-circle-play text-4xl text-pink-500 mb-2 hover:scale-110 transition cursor-pointer" onclick="FunSuite.loadNextVideo()"></i>
+              <span class="text-xs text-gray-300">默认已静音 · 点击播放高清短视频</span>
+            </div>
           </div>
-          <textarea id="text-count-input" oninput="FunSuite.countText()" rows="2" placeholder="在此粘贴文本或商品标题/SKU..." class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-emerald-500 resize-none"></textarea>
-          <div class="grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
-            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">字数: <b id="cnt-total" class="text-emerald-600">0</b></div>
-            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">汉字: <b id="cnt-cn" class="text-blue-600">0</b></div>
-            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">英数: <b id="cnt-en" class="text-purple-600">0</b></div>
-            <div class="bg-white dark:bg-gray-800 p-1 rounded border border-gray-100 dark:border-gray-700">行数: <b id="cnt-lines" class="text-amber-600">0</b></div>
-          </div>
-        </div>
 
+          <div id="media-pic-container" class="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[9/12] max-h-64 hidden relative flex items-center justify-center">
+            <img id="fun-pic-player" referrerpolicy="no-referrer" class="w-full h-full object-cover" src="" alt="治愈美图">
+          </div>
+
+          <button onclick="FunSuite.loadNextMedia()" class="w-full py-2 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
+            <i class="fa-solid fa-shuffle mr-1.5"></i>换一个看看
+          </button>
+        </div>
       </div>
     </div>
 
@@ -3993,9 +4225,34 @@
           <span class="text-[11px]">隐藏桌面宠物</span>
         </label>
       </div>
-      <span class="text-[10px] text-gray-400">© 3C Matrix 治愈生态</span>
+      <span class="text-[10px] text-gray-400">F9 老板键</span>
     </div>
   </aside>
+
+  <!-- ==================== 老板键一键伪装全屏报表遮罩 (F9 / ESC 退出) ==================== -->
+  <div id="boss-key-overlay" onclick="FunSuite.toggleBossKey(false)" class="hidden fixed inset-0 z-[100] bg-[#f8fafc] text-gray-800 p-6 overflow-auto font-mono text-xs select-none">
+    <div class="max-w-5xl mx-auto bg-white border border-gray-300 rounded shadow-sm p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+        <div>
+          <div class="text-sm font-bold text-gray-900">ERP-3C 供应链全渠道 SKU 编码一致性核验报表 (自动巡检任务 #20261118)</div>
+          <div class="text-[11px] text-gray-500 mt-0.5">状态: 正在比对 Turso 主库与门店 ERP 价目映射... (按 ESC / F9 或点击任意处返回)</div>
+        </div>
+        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-bold">RUNNING · 98.4%</span>
+      </div>
+      <table class="w-full text-left border-collapse text-[11px]">
+        <thead>
+          <tr class="bg-gray-100 border-b border-gray-300 text-gray-700">
+            <th class="p-2 border border-gray-200">批次号</th><th class="p-2 border border-gray-200">品类</th><th class="p-2 border border-gray-200">品牌校验</th><th class="p-2 border border-gray-200">笛卡尔积行数</th><th class="p-2 border border-gray-200">状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="p-2 border border-gray-200">BATCH-A091</td><td class="p-2 border border-gray-200">手机&平板</td><td class="p-2 border border-gray-200">100% 匹配</td><td class="p-2 border border-gray-200">1,248</td><td class="p-2 border border-gray-200 text-emerald-600">PASS</td></tr>
+          <tr><td class="p-2 border border-gray-200">BATCH-L042</td><td class="p-2 border border-gray-200">笔记本电脑</td><td class="p-2 border border-gray-200">100% 匹配</td><td class="p-2 border border-gray-200">672</td><td class="p-2 border border-gray-200 text-emerald-600">PASS</td></tr>
+          <tr><td class="p-2 border border-gray-200">BATCH-W018</td><td class="p-2 border border-gray-200">智能穿戴</td><td class="p-2 border border-gray-200">100% 匹配</td><td class="p-2 border border-gray-200">512</td><td class="p-2 border border-gray-200 text-emerald-600">PASS</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- ==================== 3D 立体桌面宠物挂件 (Three.js + 第三方API + 定时饥饿 + 投喂) ==================== -->
   <div id="desktop-pet-widget" class="fixed z-45 select-none" style="right: 24px; bottom: 20px; z-index: 45;">
