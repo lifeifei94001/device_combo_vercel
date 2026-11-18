@@ -5,7 +5,6 @@
       "use": "@vercel/python",
       "config": {
         "includeFiles": [
-          "3C机型字典库.xlsx",
           "core/**",
           "config/**"
         ]

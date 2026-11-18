@@ -282,11 +282,52 @@ class TursoDualStore:
             "CREATE INDEX IF NOT EXISTS idx_operation_logs_id_desc ON operation_logs (id DESC)",
             (),
         ),
+        (
+            """
+            CREATE TABLE IF NOT EXISTS dict_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT NOT NULL,
+                item_key TEXT NOT NULL DEFAULT '',
+                item_value TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+            """.strip(),
+            (),
+        ),
+        (
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_dict_items_cat_val ON dict_items (category, item_value)",
+            (),
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_dict_items_cat_sort ON dict_items (category, sort_order, id)",
+            (),
+        ),
     ]
+
+    _DICT_CATEGORIES = (
+        "brands",
+        "mobile_colors",
+        "mobile_networks",
+        "mobile_channels",
+        "mobile_rams",
+        "mobile_roms",
+        "laptop_ssds",
+        "laptop_hdds",
+        "laptop_cpus",
+        "laptop_gpus",
+        "watch_materials",
+        "watch_sizes",
+        "watch_connections",
+        "watch_straps",
+        "watch_networks",
+    )
 
     def __init__(self) -> None:
         self._init_lock = threading.Lock()
+        self._dict_lock = threading.Lock()
         self._initialized = False
+        self._dict_seeded = False
         self._backend: Any = None
         self._mode: str = "uninitialized"
         self._turso_host: str = ""
@@ -314,12 +355,138 @@ class TursoDualStore:
             if self._initialized:
                 return
             rows = self._backend.query(
-                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('device_records', 'operation_logs')"
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('device_records', 'operation_logs', 'dict_items')"
             )
             existing_count = int(rows[0][0]) if rows else 0
-            if existing_count < 2:
+            if existing_count < 3:
                 self._backend.execute_tx(self._DDL_STATEMENTS)
             self._initialized = True
+
+    def ensure_dict_seeded(self) -> int:
+        """确保 dict_items 字典表已完成初始化（空表时从 builtin_dict 全量分块播种）"""
+        self.ensure_db_ready()
+        if self._dict_seeded:
+            return -1
+        with self._dict_lock:
+            if self._dict_seeded:
+                return -1
+            cnt_rows = self._backend.query("SELECT count(*) FROM dict_items")
+            cnt = int(cnt_rows[0][0]) if cnt_rows else 0
+            if cnt > 0:
+                self._dict_seeded = True
+                return cnt
+
+            from config.builtin_dict import BUILTIN_BRANDS, BUILTIN_LAPTOP, BUILTIN_MOBILE, BUILTIN_WATCH
+
+            ts = now_str()
+            all_rows: List[Tuple[str, str, str, int]] = []
+            seen: set = set()
+
+            def _push(cat: str, key: str, val: str, order: int) -> None:
+                v = str(val or "").strip()
+                k = str(key or "").strip()
+                if not v or (cat, v) in seen:
+                    return
+                seen.add((cat, v))
+                all_rows.append((cat, k, v, order))
+
+            for idx, b in enumerate(BUILTIN_BRANDS):
+                _push("brands", b.get("id", ""), b.get("name", ""), idx)
+
+            cat_lists = [
+                ("mobile_colors", BUILTIN_MOBILE.get("机型颜色", [])),
+                ("mobile_networks", BUILTIN_MOBILE.get("网络制式", [])),
+                ("mobile_channels", BUILTIN_MOBILE.get("购买渠道", [])),
+                ("mobile_rams", BUILTIN_MOBILE.get("RAM", [])),
+                ("mobile_roms", BUILTIN_MOBILE.get("ROM", [])),
+                ("laptop_ssds", BUILTIN_LAPTOP.get("固态硬盘", [])),
+                ("laptop_hdds", BUILTIN_LAPTOP.get("机械硬盘", [])),
+                ("laptop_cpus", BUILTIN_LAPTOP.get("处理器", [])),
+                ("laptop_gpus", BUILTIN_LAPTOP.get("显卡", [])),
+                ("watch_materials", BUILTIN_WATCH.get("表壳材质", [])),
+                ("watch_sizes", BUILTIN_WATCH.get("表壳尺寸", [])),
+                ("watch_connections", BUILTIN_WATCH.get("连接", [])),
+                ("watch_straps", BUILTIN_WATCH.get("表带", [])),
+                ("watch_networks", BUILTIN_WATCH.get("网络制式", [])),
+            ]
+            for cat_name, items in cat_lists:
+                for idx, val in enumerate(items):
+                    _push(cat_name, "", val, idx)
+
+            cols_per_row = 5
+            rows_per_stmt = max(1, min(120, 900 // cols_per_row))
+            stmts: List[Tuple[str, Sequence[Any]]] = []
+            for offset in range(0, len(all_rows), rows_per_stmt):
+                chunk = all_rows[offset : offset + rows_per_stmt]
+                placeholders = ", ".join(["(?, ?, ?, ?, ?)"] * len(chunk))
+                sql = (
+                    "INSERT OR IGNORE INTO dict_items "
+                    "(category, item_key, item_value, sort_order, created_at) "
+                    f"VALUES {placeholders}"
+                )
+                flat_args: List[Any] = []
+                for cat, key, val, order in chunk:
+                    flat_args.extend([cat, key, val, order, ts])
+                stmts.append((sql, flat_args))
+
+            # 每批最多 15 条多值 INSERT 打包一次事务，避免单次请求体过大
+            for batch_start in range(0, len(stmts), 15):
+                self._backend.execute_tx(stmts[batch_start : batch_start + 15])
+
+            self._dict_seeded = True
+            return len(all_rows)
+
+    def load_dict_data(self) -> Dict[str, Any]:
+        """从 Turso / SQLite 读取全部 15 个维度的字典数据"""
+        self.ensure_dict_seeded()
+        rows = self._backend.query(
+            "SELECT category, item_key, item_value FROM dict_items ORDER BY sort_order ASC, id ASC"
+        )
+        result: Dict[str, Any] = {cat: [] for cat in self._DICT_CATEGORIES}
+        for cat, item_key, item_value in rows:
+            cat_str = str(cat)
+            if cat_str not in result:
+                continue
+            if cat_str == "brands":
+                result["brands"].append({"id": str(item_key or ""), "name": str(item_value or "")})
+            else:
+                result[cat_str].append(str(item_value or ""))
+        return result
+
+    def add_dict_item(self, category: str, item_value: str, item_key: str = "") -> Dict[str, Any]:
+        """新增一条字典参数并持久化到数据库"""
+        cat = str(category or "").strip()
+        val = str(item_value or "").strip()
+        key = str(item_key or "").strip()
+        if cat not in self._DICT_CATEGORIES:
+            raise ValueError(f"不支持的字典分类: {cat}")
+        if not val:
+            raise ValueError("字典值不能为空")
+        if cat == "brands" and not key:
+            raise ValueError("新增品牌必须提供品牌 ID")
+
+        self.ensure_dict_seeded()
+        ts = now_str()
+        order_rows = self._backend.query(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM dict_items WHERE category = ?",
+            (cat,),
+        )
+        next_order = int(order_rows[0][0]) if order_rows else 0
+        self._backend.execute_tx(
+            [
+                (
+                    "INSERT OR IGNORE INTO dict_items (category, item_key, item_value, sort_order, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (cat, key, val, next_order, ts),
+                ),
+                (
+                    "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
+                    "VALUES ('dict', 'save', 1, 0, ?, ?)",
+                    (f"新增字典项 [{cat}]: {val}" + (f" (ID:{key})" if key else ""), ts),
+                ),
+            ]
+        )
+        return {"category": cat, "item_key": key, "item_value": val}
 
     def get_backend_info(self) -> Dict[str, Any]:
         return {
@@ -338,12 +505,15 @@ class TursoDualStore:
             counts[str(mod)] = int(cnt)
         log_rows = self._backend.query("SELECT count(*) FROM operation_logs")
         log_count = int(log_rows[0][0]) if log_rows else 0
+        dict_rows = self._backend.query("SELECT count(*) FROM dict_items")
+        dict_count = int(dict_rows[0][0]) if dict_rows else 0
         return {
             "status": "ok",
             "backend": self._mode,
             "target": self._turso_host if self._mode == "turso" else "local-sqlite",
             "record_counts": counts,
             "log_count": log_count,
+            "dict_count": dict_count,
         }
 
     def load_records(self, module_id: str) -> List[Dict[str, Any]]:

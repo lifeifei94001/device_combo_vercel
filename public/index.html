@@ -103,6 +103,25 @@
       100% { transform: scale(1) translateY(0); opacity: 1; }
     }
     .egg-pop-in { animation: eggPop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    /* 桌面宠物挂件动效 */
+    @keyframes petBob {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-4px) scale(1.03); }
+    }
+    @keyframes petHungryShake {
+      0%, 100% { transform: rotate(0deg) translateY(0); }
+      20% { transform: rotate(-6deg) translateY(-2px); }
+      40% { transform: rotate(6deg) translateY(-2px); }
+      60% { transform: rotate(-4deg) translateY(0); }
+      80% { transform: rotate(4deg) translateY(0); }
+    }
+    @keyframes petFloatUp {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.9); }
+      100% { opacity: 0; transform: translate(-50%, -36px) scale(1.15); }
+    }
+    .pet-bob { animation: petBob 2.6s ease-in-out infinite; }
+    .pet-hungry-shake { animation: petHungryShake 1.4s ease-in-out infinite; }
+    .pet-float-feedback { animation: petFloatUp 1.1s ease-out forwards; }
   </style>
 </head>
 <body class="flex h-screen overflow-hidden transition-colors duration-200">
@@ -194,8 +213,6 @@
 
       <div class="text-[11px] text-gray-400 text-center leading-relaxed">
         <div>© 2025 3C Matrix</div>
-        <div class="text-gray-500 font-medium">作者: 金玉，婷婷，崇朗</div>
-        <div class="text-gray-300 text-[10px]">v1.0.0</div>
       </div>
     </div>
   </aside>
@@ -214,8 +231,8 @@
         </div>
 
         <!-- 顶栏灵感与天气微型胶囊 (润物无声 · 点击唤起百宝箱) -->
-        <div id="topbar-fun-capsule" class="hidden xl:flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 hover:from-blue-100 hover:to-indigo-100 dark:from-gray-800 dark:to-gray-800 dark:hover:from-gray-700 dark:hover:to-gray-700 text-xs rounded-full border border-blue-100 dark:border-gray-700 cursor-pointer transition select-none ml-2 shadow-sm" onclick="FunSuite.openDrawer('quote')" title="点击打开 3C 摸鱼百宝箱">
-          <span id="capsule-weather" class="font-medium text-blue-600 dark:text-blue-400">🌤️ 晴 25℃</span>
+        <div id="topbar-fun-capsule" class="hidden xl:flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 hover:from-blue-100 hover:to-indigo-100 dark:from-gray-800 dark:to-gray-800 dark:hover:from-gray-700 dark:hover:to-gray-700 text-xs rounded-full border border-blue-100 dark:border-gray-700 cursor-pointer transition select-none ml-2 shadow-sm" onclick="FunSuite.openDrawer('daily')" title="点击打开 3C 摸鱼百宝箱">
+          <span id="capsule-weather" class="font-medium text-blue-600 dark:text-blue-400">🌤️ 定位天气中...</span>
           <span class="text-gray-300 dark:text-gray-600">|</span>
           <span id="capsule-greeting" class="font-bold text-gray-700 dark:text-gray-200">下午好</span>
           <span class="text-gray-300 dark:text-gray-600">·</span>
@@ -311,7 +328,7 @@
             <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-lg mb-3">📚</div>
             <div class="text-xs text-gray-400">核心字典</div>
             <div class="text-base font-bold text-gray-800 mt-0.5">全维度字典配置</div>
-            <div class="text-xs text-gray-500 mt-1">4 大 Sheet 完整展现，支持一键查看与自动自学习</div>
+            <div class="text-xs text-gray-500 mt-1">4 大分类云端数据库托管，支持在线新增与实时同步</div>
           </div>
         </div>
       </div>
@@ -750,17 +767,39 @@
       <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
         <div class="flex items-center space-x-2">
           <span class="text-purple-600 font-bold text-lg"><i class="fa-solid fa-cubes"></i></span>
-          <h3 class="font-bold text-gray-800 text-sm">3C 机型全维度字典配置大盘 (4大Sheet全量展现)</h3>
+          <h3 class="font-bold text-gray-800 text-sm">3C 机型全维度字典配置大盘 (云端数据库全量托管)</h3>
         </div>
         <button onclick="closeDictConfigModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
       </div>
 
       <!-- Tab 切换 -->
       <div class="flex border-b border-gray-200 px-5 pt-3 space-x-4 bg-gray-50/40 text-xs font-semibold select-none">
-        <button id="dict-tab-mobile" onclick="switchDictTab('mobile')" class="pb-2.5 border-b-2 border-blue-600 text-blue-600 flex items-center"><i class="fa-solid fa-mobile mr-1.5"></i>手机&平板 Sheet</button>
-        <button id="dict-tab-laptop" onclick="switchDictTab('laptop')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-laptop mr-1.5"></i>笔记本 Sheet</button>
-        <button id="dict-tab-watch" onclick="switchDictTab('watch')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-clock mr-1.5"></i>手表 Sheet</button>
-        <button id="dict-tab-brand" onclick="switchDictTab('brand')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-tags mr-1.5"></i>品牌 ID Sheet</button>
+        <button id="dict-tab-mobile" onclick="switchDictTab('mobile')" class="pb-2.5 border-b-2 border-blue-600 text-blue-600 flex items-center"><i class="fa-solid fa-mobile mr-1.5"></i>手机&平板字典</button>
+        <button id="dict-tab-laptop" onclick="switchDictTab('laptop')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-laptop mr-1.5"></i>笔记本字典</button>
+        <button id="dict-tab-watch" onclick="switchDictTab('watch')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-clock mr-1.5"></i>手表字典</button>
+        <button id="dict-tab-brand" onclick="switchDictTab('brand')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-tags mr-1.5"></i>品牌 ID 字典</button>
+      </div>
+
+      <!-- 在线新增字典项表单 -->
+      <div class="px-5 py-2.5 border-b border-gray-100 bg-purple-50/40 flex flex-wrap items-center gap-2 text-xs">
+        <span class="font-semibold text-purple-700"><i class="fa-solid fa-plus-circle mr-1"></i>在线补充字典：</span>
+        <select id="dict-add-category" onchange="toggleDictAddKeyField()" class="px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
+          <option value="mobile_colors">手机&平板 · 机型颜色</option>
+          <option value="mobile_channels">手机&平板 · 购买渠道</option>
+          <option value="mobile_networks">手机&平板 · 网络制式</option>
+          <option value="laptop_ssds">笔记本 · 固态硬盘</option>
+          <option value="laptop_hdds">笔记本 · 机械硬盘</option>
+          <option value="laptop_cpus">笔记本 · 处理器 CPU</option>
+          <option value="laptop_gpus">笔记本 · 显卡 GPU</option>
+          <option value="watch_materials">手表 · 表壳材质</option>
+          <option value="watch_sizes">手表 · 表壳尺寸</option>
+          <option value="watch_straps">手表 · 表带类型</option>
+          <option value="watch_connections">手表 · 连接方式</option>
+          <option value="brands">品牌与 ID 对照</option>
+        </select>
+        <input type="text" id="dict-add-key" placeholder="品牌ID (如 201)" class="hidden w-28 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-mono">
+        <input type="text" id="dict-add-value" placeholder="输入新增参数名称..." class="flex-1 min-w-[160px] px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
+        <button onclick="addDictItemFromModal()" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition">写入数据库</button>
       </div>
 
       <!-- 字典内容展示容器 -->
@@ -769,7 +808,7 @@
       </div>
 
       <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-        <span class="text-xs text-gray-400">✨ 提示：手动在界面输入的新参数在处理时会自动持久化回写至《3C机型字典库.xlsx》</span>
+        <span class="text-xs text-gray-400">✨ 提示：全量字典已全面托管至云端数据库（不再依赖本地 .xlsx 文件），新增项实时持久化生效</span>
         <button onclick="closeDictConfigModal()" class="px-4 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg">关闭</button>
       </div>
     </div>
@@ -1588,15 +1627,59 @@
       closeSearchModal();
     }
 
-    // 全维度字典配置大盘展示 (修复第5项)
+    let currentDictTab = 'mobile';
+
+    // 全维度字典配置大盘展示
     function openDictConfigModal() {
       document.getElementById('dict-config-modal').classList.remove('hidden');
-      switchDictTab('mobile');
+      toggleDictAddKeyField();
+      switchDictTab(currentDictTab || 'mobile');
     }
     function closeDictConfigModal() {
       document.getElementById('dict-config-modal').classList.add('hidden');
     }
+    function toggleDictAddKeyField() {
+      const cat = document.getElementById('dict-add-category')?.value;
+      const keyInput = document.getElementById('dict-add-key');
+      if (!keyInput) return;
+      if (cat === 'brands') keyInput.classList.remove('hidden');
+      else keyInput.classList.add('hidden');
+    }
+    async function addDictItemFromModal() {
+      const catEl = document.getElementById('dict-add-category');
+      const keyEl = document.getElementById('dict-add-key');
+      const valEl = document.getElementById('dict-add-value');
+      const category = catEl?.value || '';
+      const item_key = keyEl?.value.trim() || '';
+      const item_value = valEl?.value.trim() || '';
+      if (!item_value) { alert('请输入要新增的参数名称！'); return; }
+      if (category === 'brands' && !item_key) { alert('新增品牌时请输入品牌 ID！'); return; }
+
+      try {
+        const res = await fetch('/api/dict/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, item_key, item_value })
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') {
+          alert(`写入失败: ${data.msg || '未知错误'}`);
+          return;
+        }
+        valEl.value = '';
+        if (keyEl) keyEl.value = '';
+        await loadDictData();
+        const targetTab = category.startsWith('mobile') ? 'mobile'
+          : category.startsWith('laptop') ? 'laptop'
+          : category.startsWith('watch') ? 'watch' : 'brand';
+        switchDictTab(targetTab);
+        FunSuite.showToast(`✅ 已将「${item_value}」写入数据库字典！`);
+      } catch (e) {
+        alert(`写入字典异常: ${e}`);
+      }
+    }
     function switchDictTab(tab) {
+      currentDictTab = tab;
       ['mobile', 'laptop', 'watch', 'brand'].forEach(t => {
         const btn = document.getElementById(`dict-tab-${t}`);
         if (t === tab) {
@@ -1959,11 +2042,13 @@
         this.initOffDutyTimer();
         this.initFishCalendar();
         this.fetchWeather();
+        this.fetchIpInfo();
         this.initQuote();
         this.fetchNews();
         this.initWallpaper();
         this.initBadgeVisibility();
         this.initFoodRoller();
+        setInterval(() => this.fetchWeather(), 30 * 60 * 1000);
       },
 
       // 下班倒计时与设定
@@ -2058,31 +2143,59 @@
         }
       },
 
-      // 实时天气 (定位广州)
+      // 实时天气 (根据 IP 自动定位所在城市并定时更新)
       async fetchWeather(force = false) {
         const tempEl = document.getElementById('fun-weather-temp');
+        const tipEl = document.getElementById('fun-weather-tip');
+        const iconEl = document.getElementById('fun-weather-icon');
         const capsuleWeather = document.getElementById('capsule-weather');
         const cityEl = document.getElementById('fun-weather-city');
-        if (cityEl) cityEl.innerText = "📍 广州";
+
+        if (force && capsuleWeather) capsuleWeather.innerText = '🌤️ 正在刷新定位天气...';
+
+        let queryUrl = '/api/weather';
+        try {
+          // 优先使用浏览器直连拿客户端真实 IP 定位，解决代理出口偏差
+          const geoCtrl = new AbortController();
+          const geoTimer = setTimeout(() => geoCtrl.abort(), 3500);
+          const geoRes = await fetch('https://ipwho.is/', { signal: geoCtrl.signal });
+          clearTimeout(geoTimer);
+          if (geoRes.ok) {
+            const g = await geoRes.json();
+            if (g && g.success !== false && (g.city || (g.latitude && g.longitude))) {
+              const params = new URLSearchParams();
+              if (g.city) params.set('city', g.city);
+              if (g.latitude) params.set('lat', String(g.latitude));
+              if (g.longitude) params.set('lon', String(g.longitude));
+              queryUrl = `/api/weather?${params.toString()}`;
+            }
+          }
+        } catch (e) {}
 
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 2500);
-          const res = await fetch('https://wttr.in/Guangzhou?format=j1', { signal: controller.signal });
+          const timer = setTimeout(() => controller.abort(), 7000);
+          const res = await fetch(queryUrl, { signal: controller.signal });
           clearTimeout(timer);
           if (res.ok) {
             const data = await res.json();
-            const cur = data.current_condition[0];
-            const temp = cur.temp_C;
-            const desc = cur.lang_zh ? cur.lang_zh[0].value : (cur.weatherDesc[0].value || '晴');
+            const city = data.city || '本地';
+            const temp = data.temp_c || '24';
+            const desc = data.desc || '晴朗';
+            const icon = data.icon || '🌤️';
+            if (cityEl) cityEl.innerText = `📍 ${city}`;
+            if (iconEl) iconEl.innerText = icon;
             if (tempEl) tempEl.innerText = `${temp}℃ · ${desc}`;
-            if (capsuleWeather) capsuleWeather.innerText = `🌤️ 广州 ${temp}℃`;
+            if (tipEl && data.tip) tipEl.innerText = data.tip;
+            if (capsuleWeather) capsuleWeather.innerText = `${icon} ${city} ${temp}℃`;
+            if (force) this.showToast(`🌦️ 已更新「${city}」实时天气：${temp}℃ ${desc}`);
             return;
           }
         } catch (e) {}
 
-        if (tempEl) tempEl.innerText = `26℃ · 晴天微风`;
-        if (capsuleWeather) capsuleWeather.innerText = `🌤️ 广州 26℃`;
+        if (cityEl) cityEl.innerText = '📍 本地';
+        if (tempEl) tempEl.innerText = '24℃ · 晴转多云';
+        if (capsuleWeather) capsuleWeather.innerText = '🌤️ 本地 24℃';
       },
 
       // 文案系统
@@ -2143,38 +2256,38 @@
 
           if (this.currentQuoteCat === 'shenhuifu') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-shenhuifu/index.php?aa1=json';
-            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].shenhuifu.replace(/<br\s*[\/]?>/gi, ' ') : '';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? (d[0].shenhuifu || '') : (d?.shenhuifu || '');
           } else if (this.currentQuoteCat === 'poison') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-dujitang/index.php?aa1=json';
-            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].dujitang : '';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? (d[0].dujitang || '') : (d?.dujitang || '');
           } else if (this.currentQuoteCat === 'wyy') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-wangyiyunreping/index.php?aa1=json';
-            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].wangyiyunreping : '';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? (d[0].wangyiyunreping || '') : (d?.wangyiyunreping || '');
           } else if (this.currentQuoteCat === 'work') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json';
-            fieldExtractor = (d) => Array.isArray(d) && d[0] ? d[0].gaoxiao : '';
+            fieldExtractor = (d) => Array.isArray(d) && d[0] ? (d[0].gaoxiao || '') : (d?.gaoxiao || '');
           } else if (this.currentQuoteCat === 'fortune') {
             apiUrl = 'https://v.api.aa1.cn/api/api-wenan-anwei/index.php?type=json';
-            fieldExtractor = (d) => d && d.anwei ? d.anwei : '';
+            fieldExtractor = (d) => (d && d.anwei) ? d.anwei : (Array.isArray(d) && d[0] ? (d[0].anwei || '') : '');
           } else if (this.currentQuoteCat === 'dog') {
             apiUrl = 'https://v.api.aa1.cn/api/tiangou/index.php?aa1=json';
-            fieldExtractor = (d) => d && d.msg ? d.msg : '';
+            fieldExtractor = (d) => (d && d.msg) ? d.msg : '';
           }
 
           if (!apiUrl) return;
 
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 2500);
+          const timer = setTimeout(() => controller.abort(), 6000);
           const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(apiUrl), { signal: controller.signal });
           clearTimeout(timer);
           if (res.ok) {
             const data = await res.json();
-            const text = fieldExtractor(data);
-            if (text && typeof text === 'string' && text.trim()) {
+            let text = String(fieldExtractor(data) || '').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').trim();
+            if (text && !text.includes('()') && text.length >= 4 && !/避孕|色情/.test(text)) {
               const displayEl = document.getElementById('fun-quote-display');
               const capsuleEl = document.getElementById('capsule-quote');
-              if (displayEl) displayEl.innerText = text.trim();
-              if (capsuleEl) capsuleEl.innerText = text.trim();
+              if (displayEl) displayEl.innerText = text;
+              if (capsuleEl) capsuleEl.innerText = text;
             }
           }
         } catch (e) {}
@@ -2213,24 +2326,27 @@
 
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 3000);
+          const timer = setTimeout(() => controller.abort(), 6000);
           const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://v.api.aa1.cn/api/zhihu-news/index.php?aa1=renxi'), { signal: controller.signal });
           clearTimeout(timer);
           if (res.ok) {
             const data = await res.json();
             const newsArr = (data && data.news && data.news.length) ? data.news : (data && data.top_stories ? data.top_stories : []);
             if (newsArr && newsArr.length) {
-              listEl.innerHTML = newsArr.map((n, idx) => `
-                <a href="${n.share_url || n.url}" target="_blank" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
+              listEl.innerHTML = newsArr.map((n, idx) => {
+                const safeHref = escapeHtml(n.url || n.share_url || 'https://daily.zhihu.com/');
+                return `
+                <a href="${safeHref}" target="_blank" rel="noopener noreferrer" class="block p-2 bg-white dark:bg-gray-800 hover:bg-blue-50/50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition group">
                   <div class="flex items-start space-x-2">
                     <span class="w-4 h-4 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center flex-shrink-0 mt-0.5">${idx + 1}</span>
                     <div class="flex-1">
-                      <div class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition font-medium">${n.title}</div>
-                      ${n.hint ? `<div class="text-[10px] text-gray-400 mt-0.5">${n.hint}</div>` : ''}
+                      <div class="line-clamp-2 leading-relaxed group-hover:text-blue-600 transition font-medium">${escapeHtml(n.title || '')}</div>
+                      ${n.hint ? `<div class="text-[10px] text-gray-400 mt-0.5">${escapeHtml(n.hint)}</div>` : ''}
                     </div>
                   </div>
                 </a>
-              `).join('');
+              `;
+              }).join('');
               this.nextHistory();
               return;
             }
@@ -2242,7 +2358,7 @@
           { title: "💻 AI PC 新纪元：端侧大模型算力与大容量 SSD 成为新机标配", url: "https://www.zhihu.com/search?type=content&q=AIPC" },
           { title: "⌚ 智能穿戴生态升级：健康监测传感器与钛金属表壳普及", url: "https://www.zhihu.com/search?type=content&q=智能手表" },
           { title: "☕ 打工人周五摸鱼指南：如何优雅地按时下班", url: "https://www.zhihu.com" },
-          { title: "🚀 3C Matrix 终极无瑕版系统运行稳定，排列组合性能提升50%", url: "https://3c.melan.cc.cd/" }
+          { title: "🚀 3C Matrix 云端双模版已接入 Turso 数据库，字典与记录实时同步", url: "https://www.zhihu.com/search?type=content&q=Turso" }
         ];
 
         listEl.innerHTML = defaultNews.map((n, idx) => `
@@ -2377,15 +2493,15 @@
         if (resBox) resBox.classList.remove('hidden');
 
         try {
-          const url = `https://v.api.aa1.cn/api/phone/guishu-api.php?phone=${phone}`;
+          const url = `https://v.api.aa1.cn/api/phone/guishu-api.php?phone=${encodeURIComponent(phone)}`;
           const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent(url));
           if (res.ok) {
             const json = await res.json();
             if (json && json.data) {
-              const prov = json.data.province || '';
-              const city = json.data.city || '';
+              const area = [json.data.province, json.data.city].filter(Boolean).join(' ');
               const sp = json.data.sp || '';
-              if (resText) resText.innerText = `${prov} ${city} · ${sp}`;
+              const txt = [area, sp].filter(Boolean).join(' · ');
+              if (resText) resText.innerText = txt || '未查询到归属信息';
               return;
             }
           }
@@ -2396,7 +2512,9 @@
       // 5. 二维码生成
       generateQRCode() {
         const input = document.getElementById('qr-input-text');
-        const val = input ? (input.value.trim() || 'https://3c.melan.cc.cd/') : 'https://3c.melan.cc.cd/';
+        const defaultUrl = window.location.origin;
+        if (input && !input.value.trim()) input.value = defaultUrl;
+        const val = input ? (input.value.trim() || defaultUrl) : defaultUrl;
         const container = document.getElementById('qrcode-canvas-wrapper');
         if (!container) return;
         container.innerHTML = '';
@@ -2433,21 +2551,35 @@
         }
       },
 
-      // 6. IP 查询
+      // 6. IP 定位与网络环境查询
       async fetchIpInfo() {
         const ipVal = document.getElementById('fun-ip-val');
         const ipLoc = document.getElementById('fun-ip-location');
         try {
-          const res = await fetch('https://api.ipify.org?format=json');
+          const res = await fetch('/api/geo');
+          if (res.ok) {
+            const g = await res.json();
+            if (g && g.ip) {
+              if (ipVal) ipVal.innerText = g.ip;
+              const locStr = g.isp || [g.country, g.region, g.city].filter(Boolean).join(' · ') || '公网正常';
+              if (ipLoc) ipLoc.innerText = locStr;
+              return;
+            }
+          }
+        } catch (e) {}
+
+        try {
+          const res = await fetch('https://ipwho.is/');
           if (res.ok) {
             const data = await res.json();
-            if (ipVal) ipVal.innerText = data.ip;
-            if (ipLoc) ipLoc.innerText = "电信/联通/移动 (公网正常)";
+            if (ipVal) ipVal.innerText = data.ip || '未知';
+            if (ipLoc) ipLoc.innerText = [data.country, data.region, data.city].filter(Boolean).join(' · ') || '公网正常';
+            return;
           }
-        } catch (e) {
-          if (ipVal) ipVal.innerText = "127.0.0.1 (本地局域网)";
-          if (ipLoc) ipLoc.innerText = "专线网络加速";
-        }
+        } catch (e) {}
+
+        if (ipVal) ipVal.innerText = '127.0.0.1';
+        if (ipLoc) ipLoc.innerText = '本地网络环境';
       },
 
       // ==================== 娱乐视界 (短视频与治愈美图) ====================
@@ -2481,13 +2613,19 @@
         const ph = document.getElementById('fun-video-placeholder');
         const vp = document.getElementById('fun-video-player');
         if (ph) ph.classList.add('hidden');
+        if (!vp) return;
+        vp.referrerPolicy = 'no-referrer';
+        vp.onerror = () => {
+          this.showToast('⚠️ 当前视频流加载受限，请点击「换一个看看」切换下一条');
+        };
 
         try {
-          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('http://api.yujn.cn/api/zzxjj.php?type=json'));
+          const res = await fetch('/api/fun_proxy?url=' + encodeURIComponent('https://api.yujn.cn/api/zzxjj.php?type=json'));
           if (res.ok) {
             const json = await res.json();
-            if (json && json.data) {
-              vp.src = json.data.trim();
+            if (json && typeof json.data === 'string' && json.data.trim().startsWith('http')) {
+              const videoUrl = json.data.trim().replace(/^http:\/\//i, 'https://');
+              vp.src = videoUrl;
               vp.muted = true;
               vp.play().catch(() => {});
               return;
@@ -2495,15 +2633,17 @@
           }
         } catch (e) {}
 
-        vp.src = `https://v.api.aa1.cn/api/api-dy-girl/video/0068.mp4?t=${Date.now()}`;
-        vp.muted = true;
-        vp.play().catch(() => {});
+        this.showToast('⚠️ 短视频接口暂时繁忙，可切换「治愈美图」查看');
       },
 
       loadNextPic() {
         const picEl = document.getElementById('fun-pic-player');
         if (picEl) {
-          picEl.src = `https://picsum.photos/400/600?random=${Math.random()}`;
+          picEl.referrerPolicy = 'no-referrer';
+          picEl.onerror = () => {
+            picEl.src = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop';
+          };
+          picEl.src = `https://picsum.photos/400/600?random=${Date.now()}`;
         }
       },
 
@@ -2605,18 +2745,24 @@
         container.innerHTML = list.map((item, idx) => {
           const isActive = (item.url === currentUrl);
           return `
-            <div onclick="FunSuite.selectWallpaper('${item.url}', '${item.name}')" class="relative group rounded-xl overflow-hidden cursor-pointer border border-gray-200 dark:border-gray-700 aspect-video bg-gray-100 dark:bg-gray-800 transition transform hover:-translate-y-1 hover:shadow-lg ${isActive ? 'wall-card-active' : ''}">
-              <img src="${item.url}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
+            <div onclick="FunSuite.selectWallpaperByIndex(${idx})" class="relative group rounded-xl overflow-hidden cursor-pointer border border-gray-200 dark:border-gray-700 aspect-video bg-gray-100 dark:bg-gray-800 transition transform hover:-translate-y-1 hover:shadow-lg ${isActive ? 'wall-card-active' : ''}">
+              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover transition duration-300 group-hover:scale-105">
               <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-between p-2.5">
                 <div class="flex justify-between items-start">
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/50 text-white backdrop-blur-sm">${item.tag}</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-black/50 text-white backdrop-blur-sm">${escapeHtml(item.tag)}</span>
                   ${isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow"><i class="fa-solid fa-check mr-1"></i>使用中</span>' : ''}
                 </div>
-                <div class="text-[11px] font-semibold text-white truncate drop-shadow">${item.name}</div>
+                <div class="text-[11px] font-semibold text-white truncate drop-shadow">${escapeHtml(item.name)}</div>
               </div>
             </div>
           `;
         }).join('');
+      },
+
+      selectWallpaperByIndex(idx) {
+        const list = this.wallpapers[this.currentWallCategory] || [];
+        const item = list[idx];
+        if (item) this.selectWallpaper(item.url, item.name);
       },
 
       selectWallpaper(url, name) {
@@ -2712,7 +2858,10 @@
         if (drawer) drawer.classList.remove('drawer-closed');
         if (backdrop) backdrop.classList.remove('backdrop-hidden');
         if (defaultTab) this.switchTab(defaultTab);
-        if (defaultTab === 'tools') this.generateQRCode();
+        if (defaultTab === 'tools') {
+          this.generateQRCode();
+          this.fetchIpInfo();
+        }
       },
 
       closeDrawer() {
@@ -2745,7 +2894,10 @@
             if (btn) btn.className = "flex-1 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition flex items-center justify-center space-x-1";
           }
         });
-        if (tab === 'tools') this.generateQRCode();
+        if (tab === 'tools') {
+          this.generateQRCode();
+          this.fetchIpInfo();
+        }
       },
 
       initBadgeVisibility() {
@@ -2778,8 +2930,324 @@
       }
     };
 
+    // ==========================================
+    // 🐾 桌面宠物挂件 (定时饥饿 + 多美食投喂 + 可拖拽)
+    // ==========================================
+    const DesktopPet = {
+      STORAGE_KEY: '3c_desktop_pet_v1',
+      DECAY_INTERVAL_MS: 30000, // 每 30 秒消耗 1 点饱食度
+      OFFLINE_DECAY_MS: 120000, // 离线每 2 分钟消耗 1 点饱食度
+      state: {
+        hunger: 82,
+        affection: 15,
+        feedCount: 0,
+        lastTickAt: Date.now(),
+        hidden: false,
+        left: null,
+        top: null
+      },
+      panelOpen: false,
+      dragMoved: false,
+      tickTimer: null,
+      countdownTimer: null,
+
+      foods: {
+        fish: { name: '小鱼干', icon: '🐟', hunger: 20, affection: 4, quote: '咔嚓咔嚓~ 小鱼干真香喵！' },
+        drumstick: { name: '香脆鸡腿', icon: '🍗', hunger: 35, affection: 6, quote: '大鸡腿太顶了，搬砖更有力气！' },
+        milktea: { name: '冰美式/奶茶', icon: '🧋', hunger: 15, affection: 10, quote: '快乐水续命成功，一起加油喵~' },
+        can: { name: '豪华猫罐头', icon: '🥫', hunger: 50, affection: 12, quote: '哇！五星级主厨罐头，幸福转圈圈！' }
+      },
+
+      init() {
+        this.loadState();
+        this.applyOfflineDecay();
+        this.applyPosition();
+        this.applyVisibility();
+        this.render();
+        this.bindDrag();
+
+        if (this.tickTimer) clearInterval(this.tickTimer);
+        this.tickTimer = setInterval(() => this.onHungerTick(), this.DECAY_INTERVAL_MS);
+
+        if (this.countdownTimer) clearInterval(this.countdownTimer);
+        this.countdownTimer = setInterval(() => this.updateCountdownText(), 1000);
+      },
+
+      loadState() {
+        try {
+          const raw = localStorage.getItem(this.STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              this.state = { ...this.state, ...parsed };
+            }
+          }
+        } catch (e) {}
+      },
+
+      saveState() {
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
+        } catch (e) {}
+      },
+
+      applyOfflineDecay() {
+        const now = Date.now();
+        const elapsed = Math.max(0, now - (this.state.lastTickAt || now));
+        const lost = Math.floor(elapsed / this.OFFLINE_DECAY_MS);
+        if (lost > 0) {
+          this.state.hunger = Math.max(0, this.state.hunger - lost);
+          this.state.lastTickAt = now;
+          this.saveState();
+        }
+      },
+
+      onHungerTick() {
+        const prev = this.state.hunger;
+        this.state.hunger = Math.max(0, this.state.hunger - 1);
+        this.state.lastTickAt = Date.now();
+        this.saveState();
+        this.render();
+
+        if (prev > 35 && this.state.hunger <= 35) {
+          this.showSpeech('肚子咕咕叫啦… 快来投喂小鱼干喵 🐟');
+        } else if (prev > 0 && this.state.hunger === 0) {
+          this.showSpeech('饿扁啦！急需主人投喂救命 😿');
+        }
+      },
+
+      feed(foodKey) {
+        const food = this.foods[foodKey];
+        if (!food) return;
+        const before = this.state.hunger;
+        this.state.hunger = Math.min(100, this.state.hunger + food.hunger);
+        this.state.affection = Math.min(9999, this.state.affection + food.affection);
+        this.state.feedCount += 1;
+        this.state.lastTickAt = Date.now();
+        this.saveState();
+        this.render();
+        const gained = this.state.hunger - before;
+        this.spawnFloatFeedback(`${food.icon} +${gained > 0 ? gained : food.affection}${gained > 0 ? ' 饱食' : ' 亲密'}`);
+        this.showSpeech(this.state.hunger >= 95 ? '吃得好撑呀，谢谢主人投喂 ❤️' : food.quote);
+      },
+
+      pat() {
+        this.state.affection = Math.min(9999, this.state.affection + 5);
+        this.saveState();
+        this.render();
+        this.spawnFloatFeedback('💕 +5 亲密');
+        const lines = [
+          '呼噜呼噜~ 被摸头好舒服喵！',
+          '今天也要把 3C 机型排得整整齐齐！',
+          '主人辛苦了，记得多喝水多眨眼~',
+          '再摸两下我就帮你守护云端数据！'
+        ];
+        this.showSpeech(lines[Math.floor(Math.random() * lines.length)]);
+      },
+
+      togglePanel() {
+        if (this.dragMoved) {
+          this.dragMoved = false;
+          return;
+        }
+        this.panelOpen = !this.panelOpen;
+        const panel = document.getElementById('pet-panel');
+        if (panel) panel.classList.toggle('hidden', !this.panelOpen);
+        if (this.panelOpen) this.updateCountdownText();
+      },
+
+      closePanel() {
+        this.panelOpen = false;
+        const panel = document.getElementById('pet-panel');
+        if (panel) panel.classList.add('hidden');
+      },
+
+      toggleHidden(hide) {
+        this.state.hidden = Boolean(hide);
+        if (hide) this.closePanel();
+        this.saveState();
+        this.applyVisibility();
+      },
+
+      applyVisibility() {
+        const widget = document.getElementById('desktop-pet-widget');
+        const restoreBtn = document.getElementById('pet-restore-btn');
+        const drawerToggle = document.getElementById('fun-hide-pet-toggle');
+        if (widget) widget.classList.toggle('hidden', this.state.hidden);
+        if (restoreBtn) restoreBtn.classList.toggle('hidden', !this.state.hidden);
+        if (drawerToggle) drawerToggle.checked = this.state.hidden;
+      },
+
+      resetPosition() {
+        this.state.left = null;
+        this.state.top = null;
+        this.saveState();
+        this.applyPosition();
+        FunSuite.showToast('🐾 桌面宠物已回到右下角默认位置');
+      },
+
+      applyPosition() {
+        const widget = document.getElementById('desktop-pet-widget');
+        if (!widget) return;
+        if (typeof this.state.left === 'number' && typeof this.state.top === 'number') {
+          const maxL = Math.max(12, window.innerWidth - 96);
+          const maxT = Math.max(12, window.innerHeight - 96);
+          widget.style.left = `${Math.min(maxL, Math.max(12, this.state.left))}px`;
+          widget.style.top = `${Math.min(maxT, Math.max(12, this.state.top))}px`;
+          widget.style.right = 'auto';
+          widget.style.bottom = 'auto';
+        } else {
+          widget.style.left = 'auto';
+          widget.style.top = 'auto';
+          widget.style.right = '24px';
+          widget.style.bottom = '24px';
+        }
+      },
+
+      bindDrag() {
+        const handle = document.getElementById('pet-avatar-btn');
+        const widget = document.getElementById('desktop-pet-widget');
+        if (!handle || !widget) return;
+
+        let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
+        const onMove = (e) => {
+          if (!dragging) return;
+          const pt = e.touches ? e.touches[0] : e;
+          const dx = pt.clientX - startX;
+          const dy = pt.clientY - startY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) this.dragMoved = true;
+          if (!this.dragMoved) return;
+          const maxL = Math.max(12, window.innerWidth - widget.offsetWidth - 8);
+          const maxT = Math.max(12, window.innerHeight - widget.offsetHeight - 8);
+          const nextL = Math.min(maxL, Math.max(8, origLeft + dx));
+          const nextT = Math.min(maxT, Math.max(8, origTop + dy));
+          widget.style.left = `${nextL}px`;
+          widget.style.top = `${nextT}px`;
+          widget.style.right = 'auto';
+          widget.style.bottom = 'auto';
+          this.state.left = nextL;
+          this.state.top = nextT;
+        };
+        const onEnd = () => {
+          if (!dragging) return;
+          dragging = false;
+          if (this.dragMoved) this.saveState();
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onEnd);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onEnd);
+        };
+        const onStart = (e) => {
+          const pt = e.touches ? e.touches[0] : e;
+          const rect = widget.getBoundingClientRect();
+          startX = pt.clientX;
+          startY = pt.clientY;
+          origLeft = rect.left;
+          origTop = rect.top;
+          dragging = true;
+          this.dragMoved = false;
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onEnd);
+          document.addEventListener('touchmove', onMove, { passive: true });
+          document.addEventListener('touchend', onEnd);
+        };
+        handle.addEventListener('mousedown', onStart);
+        handle.addEventListener('touchstart', onStart, { passive: true });
+      },
+
+      showSpeech(text) {
+        const bubble = document.getElementById('pet-speech-bubble');
+        if (!bubble) return;
+        bubble.innerText = text;
+        bubble.classList.remove('hidden');
+        if (this._speechTimer) clearTimeout(this._speechTimer);
+        this._speechTimer = setTimeout(() => {
+          bubble.classList.add('hidden');
+        }, 4200);
+      },
+
+      spawnFloatFeedback(text) {
+        const host = document.getElementById('desktop-pet-widget');
+        if (!host) return;
+        const el = document.createElement('div');
+        el.className = 'absolute -top-4 left-1/2 pointer-events-none text-xs font-bold text-orange-500 drop-shadow pet-float-feedback whitespace-nowrap z-50';
+        el.innerText = text;
+        host.appendChild(el);
+        setTimeout(() => el.remove(), 1150);
+      },
+
+      updateCountdownText() {
+        const el = document.getElementById('pet-next-hungry');
+        if (!el) return;
+        if (this.state.hunger <= 0) {
+          el.innerText = '已空腹！请立即投喂';
+          return;
+        }
+        const elapsed = Date.now() - (this.state.lastTickAt || Date.now());
+        const remainSec = Math.max(1, Math.ceil((this.DECAY_INTERVAL_MS - (elapsed % this.DECAY_INTERVAL_MS)) / 1000));
+        el.innerText = `${remainSec}s 后 -1 饱食`;
+      },
+
+      render() {
+        const h = this.state.hunger;
+        const emojiEl = document.getElementById('pet-emoji-face');
+        const avatarEl = document.getElementById('pet-avatar-btn');
+        const alertBadge = document.getElementById('pet-hungry-badge');
+        const barEl = document.getElementById('pet-hunger-bar');
+        const hungerValEl = document.getElementById('pet-hunger-val');
+        const moodTextEl = document.getElementById('pet-mood-text');
+        const affectionEl = document.getElementById('pet-affection-val');
+        const feedCountEl = document.getElementById('pet-feed-count');
+        const levelEl = document.getElementById('pet-level-badge');
+
+        let moodText = '元气满满 ✨';
+        let face = '😺';
+        let barColor = 'bg-emerald-500';
+        let isHungry = false;
+
+        if (h === 0) {
+          moodText = '极度饥饿 😿';
+          face = '😿';
+          barColor = 'bg-red-500';
+          isHungry = true;
+        } else if (h < 35) {
+          moodText = '肚子饿饿 🐟';
+          face = '🙀';
+          barColor = 'bg-amber-500';
+          isHungry = true;
+        } else if (h < 70) {
+          moodText = '悠闲陪你搬砖';
+          face = '🐱';
+          barColor = 'bg-blue-500';
+        } else {
+          moodText = '吃饱超开心 ❤️';
+          face = '😻';
+          barColor = 'bg-emerald-500';
+        }
+
+        if (emojiEl) emojiEl.innerText = face;
+        if (avatarEl) {
+          avatarEl.classList.remove('pet-bob', 'pet-hungry-shake');
+          avatarEl.classList.add(isHungry ? 'pet-hungry-shake' : 'pet-bob');
+        }
+        if (alertBadge) alertBadge.classList.toggle('hidden', !isHungry);
+        if (barEl) {
+          barEl.style.width = `${h}%`;
+          barEl.className = `h-2 rounded-full transition-all duration-300 ${barColor}`;
+        }
+        if (hungerValEl) hungerValEl.innerText = `${h}/100`;
+        if (moodTextEl) moodTextEl.innerText = moodText;
+        if (affectionEl) affectionEl.innerText = String(this.state.affection);
+        if (feedCountEl) feedCountEl.innerText = String(this.state.feedCount);
+        const lv = Math.floor(this.state.affection / 30) + 1;
+        if (levelEl) levelEl.innerText = `Lv.${lv}`;
+        this.updateCountdownText();
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
       FunSuite.init();
+      DesktopPet.init();
     });
   </script>
 
@@ -2887,11 +3355,11 @@
           </div>
         </div>
 
-        <!-- 实时天气胶囊 (定位广州) -->
+        <!-- 实时天气胶囊 (IP 自动定位) -->
         <div class="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700">
           <div class="font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center justify-between">
             <span class="flex items-center"><i class="fa-solid fa-cloud-sun mr-1.5 text-amber-500"></i>实时天气胶囊</span>
-            <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono font-bold">📍 广州</span>
+            <span id="fun-weather-city" class="text-[11px] text-blue-600 font-mono font-bold">📍 定位中...</span>
           </div>
           <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700">
             <div class="flex items-center space-x-3">
@@ -2967,7 +3435,7 @@
         </div>
 
         <div id="media-video-container" class="rounded-xl overflow-hidden bg-black aspect-[9/14] max-h-72 flex items-center justify-center relative shadow-inner">
-          <video id="fun-video-player" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
+          <video id="fun-video-player" referrerpolicy="no-referrer" playsinline controls muted loop preload="none" class="w-full h-full object-contain"></video>
           <div id="fun-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-4 text-center">
             <i class="fa-solid fa-circle-play text-4xl text-pink-500 mb-2 hover:scale-110 transition cursor-pointer" onclick="FunSuite.loadNextVideo()"></i>
             <span class="text-xs text-gray-300">默认已静音 · 点击播放高清短视频</span>
@@ -2975,7 +3443,7 @@
         </div>
 
         <div id="media-pic-container" class="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 aspect-[9/12] max-h-72 hidden relative flex items-center justify-center">
-          <img id="fun-pic-player" class="w-full h-full object-cover" src="" alt="治愈美图">
+          <img id="fun-pic-player" referrerpolicy="no-referrer" class="w-full h-full object-cover" src="" alt="治愈美图">
         </div>
 
         <div class="flex space-x-2">
@@ -3010,7 +3478,7 @@
             <span class="text-[10px] text-gray-400">手机扫码传数据</span>
           </div>
           <div class="flex space-x-2">
-            <input type="text" id="qr-input-text" value="https://3c.melan.cc.cd/" placeholder="输入文本或网址..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500">
+            <input type="text" id="qr-input-text" value="" placeholder="输入文本或网址..." class="flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:border-blue-500">
             <button onclick="FunSuite.generateQRCode()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">生成</button>
           </div>
           <div class="flex flex-col items-center justify-center p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
@@ -3091,14 +3559,104 @@
       </div>
     </div>
 
-    <div class="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 flex items-center justify-between">
-      <label class="flex items-center space-x-2 cursor-pointer text-gray-600 dark:text-gray-300">
-        <input type="checkbox" id="fun-hide-badge-toggle" onchange="FunSuite.toggleBadgeVisibility(this.checked)" class="rounded text-blue-600 focus:ring-0">
-        <span class="text-[11px]">隐藏右侧浮动小猫魔方</span>
-      </label>
+    <div class="p-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/60 flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-3">
+        <label class="flex items-center space-x-1.5 cursor-pointer text-gray-600 dark:text-gray-300">
+          <input type="checkbox" id="fun-hide-badge-toggle" onchange="FunSuite.toggleBadgeVisibility(this.checked)" class="rounded text-blue-600 focus:ring-0">
+          <span class="text-[11px]">隐藏侧边宝箱</span>
+        </label>
+        <label class="flex items-center space-x-1.5 cursor-pointer text-gray-600 dark:text-gray-300">
+          <input type="checkbox" id="fun-hide-pet-toggle" onchange="DesktopPet.toggleHidden(this.checked)" class="rounded text-orange-500 focus:ring-0">
+          <span class="text-[11px]">隐藏桌面宠物</span>
+        </label>
+      </div>
       <span class="text-[10px] text-gray-400">© 3C Matrix 治愈生态</span>
     </div>
   </aside>
+
+  <!-- ==================== 桌面宠物挂件 (定时饥饿 + 投喂 + 可拖拽) ==================== -->
+  <div id="desktop-pet-widget" class="fixed z-45 select-none" style="right: 24px; bottom: 24px; z-index: 45;">
+    <!-- 轻气泡提醒 -->
+    <div id="pet-speech-bubble" class="hidden absolute bottom-full right-0 mb-2 w-52 px-3 py-2 rounded-xl bg-white/95 dark:bg-[#1E1F22]/95 border border-amber-200 dark:border-gray-700 shadow-lg text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed pointer-events-none">
+      喵~ 我来陪你一起搬砖啦！
+    </div>
+
+    <!-- 投喂与状态交互面板 -->
+    <div id="pet-panel" class="hidden absolute bottom-full right-0 mb-3 w-72 bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-3.5 space-y-3 egg-pop-in">
+      <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+        <div class="flex items-center space-x-2">
+          <span class="text-lg">🐱</span>
+          <div>
+            <div class="text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-1.5">
+              <span>橘猫小助</span>
+              <span id="pet-level-badge" class="px-1.5 py-0.5 text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded font-mono">Lv.1</span>
+            </div>
+            <div id="pet-mood-text" class="text-[10px] text-gray-400">元气满满 ✨</div>
+          </div>
+        </div>
+        <button onclick="DesktopPet.closePanel()" class="text-gray-400 hover:text-gray-600 text-xs px-1">✕</button>
+      </div>
+
+      <!-- 饱食度进度条 -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-gray-600 dark:text-gray-300 font-medium">饱食度</span>
+          <span id="pet-hunger-val" class="font-mono font-bold text-emerald-600">82/100</span>
+        </div>
+        <div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+          <div id="pet-hunger-bar" class="h-2 rounded-full bg-emerald-500 transition-all duration-300" style="width: 82%;"></div>
+        </div>
+        <div class="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
+          <span>亲密度: <b id="pet-affection-val" class="text-pink-500">15</b> · 投喂 <b id="pet-feed-count">0</b> 次</span>
+          <span id="pet-next-hungry" class="font-mono">30s 后 -1 饱食</span>
+        </div>
+      </div>
+
+      <!-- 投喂菜单 -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-semibold text-gray-600 dark:text-gray-300">选择食物投喂：</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button onclick="DesktopPet.feed('fish')" class="px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/70 text-blue-700 dark:text-blue-300 text-[11px] font-medium flex items-center justify-between transition">
+            <span>🐟 小鱼干</span><span class="font-mono text-[10px]">+20</span>
+          </button>
+          <button onclick="DesktopPet.feed('drumstick')" class="px-2 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/60 dark:hover:bg-orange-900/70 text-orange-700 dark:text-orange-300 text-[11px] font-medium flex items-center justify-between transition">
+            <span>🍗 鸡腿</span><span class="font-mono text-[10px]">+35</span>
+          </button>
+          <button onclick="DesktopPet.feed('milktea')" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/70 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center justify-between transition">
+            <span>🧋 奶茶</span><span class="font-mono text-[10px]">+15</span>
+          </button>
+          <button onclick="DesktopPet.feed('can')" class="px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/70 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium flex items-center justify-between transition">
+            <span>🥫 猫罐头</span><span class="font-mono text-[10px]">+50</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 互动与操作栏 -->
+      <div class="flex items-center justify-between pt-1.5 border-t border-gray-100 dark:border-gray-800 text-[11px]">
+        <button onclick="DesktopPet.pat()" class="px-2.5 py-1 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/60 text-pink-600 dark:text-pink-300 rounded-md font-medium transition">
+          💕 摸摸头
+        </button>
+        <div class="flex items-center space-x-1.5">
+          <button onclick="DesktopPet.resetPosition()" class="px-2 py-1 text-gray-500 hover:text-blue-600 rounded transition" title="回到右下角">复位</button>
+          <button onclick="DesktopPet.toggleHidden(true)" class="px-2 py-1 text-gray-400 hover:text-red-500 rounded transition" title="暂时收起挂件">收起</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 可拖拽宠物本体按钮 -->
+    <button id="pet-avatar-btn" onclick="DesktopPet.togglePanel()" title="点击投喂橘猫小助 · 按住可拖动位置" class="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-100 via-orange-50 to-white dark:from-gray-800 dark:to-gray-700 border-2 border-amber-300/80 dark:border-amber-500/50 shadow-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing hover:scale-105 transition pet-bob">
+      <span id="pet-emoji-face" class="text-2xl leading-none">😻</span>
+      <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">小助</span>
+      <span id="pet-hungry-badge" class="hidden absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold shadow animate-bounce">
+        饿饿🐟
+      </span>
+    </button>
+  </div>
+
+  <!-- 收起宠物后的小恢复按钮 -->
+  <button id="pet-restore-btn" onclick="DesktopPet.toggleHidden(false)" title="唤出桌面宠物挂件" class="hidden fixed right-4 bottom-4 z-40 px-2.5 py-1.5 rounded-full bg-amber-50/90 dark:bg-gray-800/90 border border-amber-200 dark:border-gray-700 text-amber-700 dark:text-amber-300 text-[11px] font-semibold shadow-md hover:scale-105 transition">
+    🐾 唤出宠物
+  </button>
 
   
   <!-- ==================== 超清壁纸中心 (Wallpaper Studio) 弹窗 ==================== -->

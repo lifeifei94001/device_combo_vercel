@@ -6,6 +6,8 @@ import os
 import sys
 import io
 import base64
+from urllib.parse import unquote, urlparse
+import requests
 from flask import Flask, request, jsonify, send_file
 
 # 确保项目根路径与 core 可被导入
@@ -47,24 +49,27 @@ def health_check():
 
 @app.route('/api/dict/data', methods=['GET'])
 def get_dict_data():
-    """获取字典库数据 (内置全量字典 + Excel 双保险)"""
-    return jsonify({
-        "brands": dict_manager.brands,
-        "mobile_colors": dict_manager.mobile_colors,
-        "mobile_networks": dict_manager.mobile_networks,
-        "mobile_channels": dict_manager.mobile_channels,
-        "mobile_rams": dict_manager.mobile_rams,
-        "mobile_roms": dict_manager.mobile_roms,
-        "laptop_ssds": dict_manager.laptop_ssds,
-        "laptop_hdds": dict_manager.laptop_hdds,
-        "laptop_cpus": dict_manager.laptop_cpus,
-        "laptop_gpus": dict_manager.laptop_gpus,
-        "watch_materials": dict_manager.watch_materials,
-        "watch_sizes": dict_manager.watch_sizes,
-        "watch_connections": dict_manager.watch_connections,
-        "watch_straps": dict_manager.watch_straps,
-        "watch_networks": dict_manager.watch_networks
-    })
+    """获取全量字典库数据 (直接从 Turso / SQLite 数据库读取)"""
+    data = dict_manager.to_dict()
+    data["backend"] = turso_store.get_backend_info().get("mode")
+    return jsonify(data)
+
+
+@app.route('/api/dict/add', methods=['POST'])
+def add_dict_item():
+    """在线新增字典项并持久化至 Turso / SQLite"""
+    try:
+        data = request.get_json(force=True) or {}
+        category = data.get('category', '')
+        item_value = data.get('item_value', '')
+        item_key = data.get('item_key', '')
+        added = turso_store.add_dict_item(category, item_value, item_key)
+        dict_manager.load_dictionary(force=True)
+        return jsonify({"status": "ok", "item": added})
+    except ValueError as ve:
+        return jsonify({"status": "error", "msg": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"新增字典项失败: {str(e)}"}), 500
 
 
 @app.route('/api/template/download', methods=['GET'])
@@ -262,35 +267,320 @@ def clear_operation_logs():
         return jsonify({"status": "error", "msg": f"清空日志失败: {str(e)}"}), 500
 
 
+_PROXY_SESSION = requests.Session()
+_PROXY_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+}
+_PROXY_ALLOWLIST = {
+    'v.api.aa1.cn',
+    'api.yujn.cn',
+    'wttr.in',
+    'whois.pconline.com.cn',
+    'ipwho.is',
+    'ipapi.co',
+    'ipinfo.io',
+    'ip-api.com',
+    'api.ipify.org',
+    'api.open-meteo.com',
+}
+
+_WEATHER_DESC_ZH = {
+    'clear': ('晴朗', '☀️'),
+    'sunny': ('晴天', '☀️'),
+    'partly cloudy': ('多云', '⛅'),
+    'cloudy': ('阴天', '☁️'),
+    'overcast': ('阴', '☁️'),
+    'mist': ('薄雾', '🌫️'),
+    'fog': ('大雾', '🌫️'),
+    'haze': ('霾', '🌫️'),
+    'light drizzle': ('毛毛雨', '🌦️'),
+    'patchy light drizzle': ('零星小雨', '🌦️'),
+    'patchy rain possible': ('局部有雨', '🌦️'),
+    'patchy rain nearby': ('附近有雨', '🌦️'),
+    'light rain': ('小雨', '🌦️'),
+    'light rain shower': ('小阵雨', '🌦️'),
+    'moderate rain': ('中雨', '🌧️'),
+    'heavy rain': ('大雨', '🌧️'),
+    'torrential rain shower': ('暴雨', '⛈️'),
+    'thundery outbreaks possible': ('可能有雷雨', '⛈️'),
+    'thunderstorm': ('雷阵雨', '⛈️'),
+    'light snow': ('小雪', '❄️'),
+    'moderate snow': ('中雪', '❄️'),
+    'heavy snow': ('大雪', '❄️'),
+}
+
+
+def _translate_weather_desc(raw_desc: str) -> tuple:
+    text = (raw_desc or '').strip()
+    low = text.lower()
+    if low in _WEATHER_DESC_ZH:
+        return _WEATHER_DESC_ZH[low]
+    for key, pair in _WEATHER_DESC_ZH.items():
+        if key in low:
+            return pair
+    if any(ch in text for ch in ('雷', '暴')):
+        return text, '⛈️'
+    if '雨' in text or 'rain' in low or 'drizzle' in low:
+        return text or '有雨', '🌧️'
+    if '雪' in text or 'snow' in low:
+        return text or '降雪', '❄️'
+    if '雾' in text or '霾' in text or 'fog' in low or 'mist' in low:
+        return text or '有雾', '🌫️'
+    if '阴' in text or 'cloud' in low:
+        return text or '多云', '⛅'
+    if '晴' in text or 'sun' in low or 'clear' in low:
+        return text or '晴天', '☀️'
+    return text or '晴朗', '🌤️'
+
+
+def _extract_client_ip() -> str:
+    xff = (request.headers.get('X-Forwarded-For') or '').split(',')[0].strip()
+    if xff and not xff.startswith(('127.', '10.', '192.168.', '::1')):
+        return xff
+    real_ip = (request.headers.get('X-Real-IP') or '').strip()
+    if real_ip and not real_ip.startswith(('127.', '10.', '192.168.', '::1')):
+        return real_ip
+    return ''
+
+
+def _resolve_client_geo() -> dict:
+    """结合 Vercel Edge 请求头与第三方 IP 库精准识别客户端地理位置"""
+    client_ip = _extract_client_ip()
+    v_city = unquote(request.headers.get('X-Vercel-IP-City') or '').strip()
+    v_region = unquote(request.headers.get('X-Vercel-IP-Country-Region') or '').strip()
+    v_country = unquote(request.headers.get('X-Vercel-IP-Country') or '').strip()
+    v_lat = (request.headers.get('X-Vercel-IP-Latitude') or '').strip()
+    v_lon = (request.headers.get('X-Vercel-IP-Longitude') or '').strip()
+
+    geo = {
+        'ip': client_ip or '',
+        'city': v_city,
+        'region': v_region,
+        'country': v_country,
+        'isp': '',
+        'lat': v_lat,
+        'lon': v_lon,
+        'source': 'vercel-edge' if v_city else '',
+    }
+
+    # 若 Vercel 边际头已提供城市/经纬度，中国大陆城市补充中文归属地展示或直接返回
+    if v_city and (not client_ip or v_country != 'CN'):
+        return geo
+
+    # 对国内 IP 优先使用太平洋网络 IP 库（中文省市/运营商极准），若指定 client_ip 则精准查该 IP
+    try:
+        pc_url = 'https://whois.pconline.com.cn/ipJson.jsp?json=true'
+        if client_ip:
+            pc_url += f'&ip={client_ip}'
+        resp = _PROXY_SESSION.get(pc_url, headers=_PROXY_HEADERS, timeout=4.5)
+        if resp.status_code == 200:
+            resp.encoding = 'gbk'
+            pc = resp.json()
+            city_raw = (pc.get('city') or '').strip()
+            pro_raw = (pc.get('pro') or '').strip()
+            addr_raw = (pc.get('addr') or '').strip()
+            ip_val = (pc.get('ip') or client_ip or '').strip()
+            if city_raw or pro_raw:
+                clean_city = city_raw.rstrip('市') or pro_raw.rstrip('省市')
+                geo.update({
+                    'ip': ip_val,
+                    'city': clean_city,
+                    'region': pro_raw,
+                    'country': '中国',
+                    'isp': addr_raw,
+                    'source': 'pconline',
+                })
+                if v_lat and v_lon:
+                    geo['lat'] = v_lat
+                    geo['lon'] = v_lon
+                return geo
+    except Exception:
+        pass
+
+    if geo['city']:
+        return geo
+
+    # 兜底：ipwho.is / ip-api.com
+    try:
+        target = f'https://ipwho.is/{client_ip}' if client_ip else 'https://ipwho.is/'
+        r = _PROXY_SESSION.get(target, headers=_PROXY_HEADERS, timeout=5)
+        if r.status_code == 200:
+            j = r.json()
+            if j.get('success', True) and j.get('city'):
+                return {
+                    'ip': j.get('ip') or client_ip,
+                    'city': j.get('city') or '',
+                    'region': j.get('region') or '',
+                    'country': j.get('country') or '',
+                    'isp': (j.get('connection') or {}).get('isp') or '',
+                    'lat': str(j.get('latitude') or ''),
+                    'lon': str(j.get('longitude') or ''),
+                    'source': 'ipwho.is',
+                }
+    except Exception:
+        pass
+
+    return {
+        'ip': client_ip or '127.0.0.1',
+        'city': '广州',
+        'region': '广东省',
+        'country': '中国',
+        'isp': '本地默认节点',
+        'lat': '23.1291',
+        'lon': '113.2644',
+        'source': 'fallback',
+    }
+
+
+@app.route('/api/geo', methods=['GET'])
+def get_client_geo():
+    """返回客户端公网 IP 与地理位置"""
+    try:
+        return jsonify({"status": "ok", **_resolve_client_geo()})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+
+@app.route('/api/weather', methods=['GET'])
+def get_weather():
+    """根据 IP 定位（或传入经纬度/城市）自动获取中文实时天气"""
+    city_arg = (request.args.get('city') or '').strip()
+    lat_arg = (request.args.get('lat') or '').strip()
+    lon_arg = (request.args.get('lon') or '').strip()
+
+    geo = _resolve_client_geo() if not (city_arg or (lat_arg and lon_arg)) else {
+        'city': city_arg or '当前位置',
+        'region': '',
+        'country': '',
+        'ip': _extract_client_ip(),
+        'lat': lat_arg,
+        'lon': lon_arg,
+        'source': 'client-param',
+    }
+
+    display_city = geo.get('city') or geo.get('region') or '广州'
+    query_loc = (
+        f"{geo['lat']},{geo['lon']}"
+        if geo.get('lat') and geo.get('lon')
+        else display_city
+    )
+
+    # 1. 主数据源：wttr.in
+    try:
+        wttr_url = f"https://wttr.in/{query_loc}?format=j1&lang=zh"
+        r = _PROXY_SESSION.get(wttr_url, headers=_PROXY_HEADERS, timeout=6)
+        if r.status_code == 200:
+            data = r.json()
+            cur = (data.get('current_condition') or [{}])[0]
+            temp = cur.get('temp_C')
+            if temp is not None:
+                raw_desc = ''
+                if cur.get('lang_zh'):
+                    raw_desc = (cur['lang_zh'][0] or {}).get('value', '')
+                if not raw_desc and cur.get('weatherDesc'):
+                    raw_desc = (cur['weatherDesc'][0] or {}).get('value', '')
+                desc_zh, icon = _translate_weather_desc(raw_desc)
+                humidity = cur.get('humidity', '--')
+                wind = cur.get('windspeedKmph', '--')
+                feels = cur.get('FeelsLikeC', temp)
+                return jsonify({
+                    "status": "ok",
+                    "city": display_city,
+                    "geo": geo,
+                    "temp_c": str(temp),
+                    "feels_like_c": str(feels),
+                    "humidity": str(humidity),
+                    "wind_kmph": str(wind),
+                    "desc": desc_zh,
+                    "icon": icon,
+                    "tip": f"体感 {feels}℃ · 湿度 {humidity}% · 风速 {wind}km/h",
+                    "provider": "wttr.in",
+                })
+    except Exception:
+        pass
+
+    # 2. 备用数据源：Open-Meteo（需经纬度）
+    if geo.get('lat') and geo.get('lon'):
+        try:
+            om_url = (
+                f"https://api.open-meteo.com/v1/forecast"
+                f"?latitude={geo['lat']}&longitude={geo['lon']}"
+                f"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+            )
+            r = _PROXY_SESSION.get(om_url, headers=_PROXY_HEADERS, timeout=6)
+            if r.status_code == 200:
+                cur = r.json().get('current') or {}
+                temp = cur.get('temperature_2m')
+                if temp is not None:
+                    code = int(cur.get('weather_code') or 0)
+                    wmo_map = {
+                        0: ('晴朗', '☀️'), 1: ('晴间多云', '🌤️'), 2: ('多云', '⛅'), 3: ('阴天', '☁️'),
+                        45: ('有雾', '🌫️'), 48: ('冻雾', '🌫️'), 51: ('小毛毛雨', '🌦️'), 53: ('毛毛雨', '🌦️'),
+                        61: ('小雨', '🌦️'), 63: ('中雨', '🌧️'), 65: ('大雨', '🌧️'),
+                        80: ('阵雨', '🌦️'), 95: ('雷阵雨', '⛈️'),
+                    }
+                    desc_zh, icon = wmo_map.get(code, ('多云', '🌤️'))
+                    humidity = cur.get('relative_humidity_2m', '--')
+                    wind = cur.get('wind_speed_10m', '--')
+                    return jsonify({
+                        "status": "ok",
+                        "city": display_city,
+                        "geo": geo,
+                        "temp_c": str(round(float(temp))),
+                        "feels_like_c": str(round(float(temp))),
+                        "humidity": str(humidity),
+                        "wind_kmph": str(wind),
+                        "desc": desc_zh,
+                        "icon": icon,
+                        "tip": f"湿度 {humidity}% · 风速 {wind}km/h",
+                        "provider": "open-meteo",
+                    })
+        except Exception:
+            pass
+
+    return jsonify({
+        "status": "fallback",
+        "city": display_city,
+        "geo": geo,
+        "temp_c": "24",
+        "desc": "晴转多云",
+        "icon": "🌤️",
+        "tip": "实时气象接口暂忙，已启用本地兜底显示",
+        "provider": "fallback",
+    })
+
+
 @app.route('/api/fun_proxy', methods=['GET'])
 def fun_proxy():
-    """安全代理外部公开 API，解决 HTTPS 混杂内容与 CORS 跨域限制"""
-    target_url = request.args.get('url', '')
+    """安全代理外部公开 API：白名单防 SSRF + requests 长超时 + 自动编码修复"""
+    target_url = (request.args.get('url') or '').strip()
     if not target_url:
         return jsonify({"status": "error", "msg": "Missing url parameter"}), 400
 
-    if not (target_url.startswith('http://') or target_url.startswith('https://')):
+    parsed = urlparse(target_url)
+    if parsed.scheme not in ('http', 'https') or not parsed.hostname:
         return jsonify({"status": "error", "msg": "Invalid url scheme"}), 400
+    if parsed.hostname.lower() not in _PROXY_ALLOWLIST:
+        return jsonify({"status": "error", "msg": f"Domain not allowed: {parsed.hostname}"}), 403
 
     try:
-        import urllib.request
-        req = urllib.request.Request(
-            target_url,
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': '*/*'
-            }
+        resp = _PROXY_SESSION.get(target_url, headers=_PROXY_HEADERS, timeout=8, allow_redirects=True)
+        raw_text = resp.content.decode(resp.apparent_encoding or 'utf-8', errors='replace').lstrip('\ufeff').strip()
+        if raw_text.startswith('<') and ('<!DOCTYPE' in raw_text[:80].upper() or '<HTML' in raw_text[:80].upper()):
+            return jsonify({"status": "error", "msg": "Upstream returned HTML instead of JSON"}), 502
+
+        content_type = resp.headers.get('Content-Type', 'application/json; charset=utf-8')
+        if raw_text.startswith('{') or raw_text.startswith('['):
+            content_type = 'application/json; charset=utf-8'
+
+        response = app.response_class(
+            response=raw_text.encode('utf-8'),
+            status=resp.status_code,
+            mimetype=content_type,
         )
-        with urllib.request.urlopen(req, timeout=3.5) as resp:
-            content_type = resp.headers.get('Content-Type', 'application/json; charset=utf-8')
-            data = resp.read()
-            response = app.response_class(
-                response=data,
-                status=resp.status,
-                mimetype=content_type
-            )
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)}), 502
 
