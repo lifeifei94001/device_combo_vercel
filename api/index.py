@@ -283,6 +283,10 @@ _PROXY_ALLOWLIST = {
     'ip-api.com',
     'api.ipify.org',
     'api.open-meteo.com',
+    'v1.hitokoto.cn',
+    'api.thecatapi.com',
+    'cataas.com',
+    'dog.ceo',
 }
 
 _WEATHER_DESC_ZH = {
@@ -583,6 +587,87 @@ def fun_proxy():
         return response
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)}), 502
+
+
+@app.route('/api/pet/companion', methods=['GET'])
+def pet_companion():
+    """桌面宠物第三方 API 聚合接口：获取实时萌宠写真 (TheCatAPI/CATAAS/DogCEO) 与治愈台词 (Hitokoto/夏柔)"""
+    pet_type = (request.args.get('type') or 'cat').strip().lower()
+    need_image = request.args.get('image', '1') != '0'
+
+    quote_text = ''
+    quote_source = ''
+    try:
+        r_q = _PROXY_SESSION.get(
+            'https://v1.hitokoto.cn/?c=d&c=i&c=k&encode=json',
+            headers=_PROXY_HEADERS,
+            timeout=3.5,
+        )
+        if r_q.status_code == 200:
+            hq = r_q.json()
+            if hq.get('hitokoto'):
+                from_who = hq.get('from') or '一言'
+                quote_text = f"{hq['hitokoto']} ——{from_who}"
+                quote_source = 'hitokoto.cn'
+    except Exception:
+        pass
+
+    if not quote_text:
+        try:
+            r_a = _PROXY_SESSION.get(
+                'https://v.api.aa1.cn/api/api-wenan-gaoxiao/index.php?aa1=json',
+                headers=_PROXY_HEADERS,
+                timeout=4.0,
+            )
+            if r_a.status_code == 200:
+                arr = r_a.json()
+                if isinstance(arr, list) and arr and arr[0].get('gaoxiao'):
+                    quote_text = str(arr[0]['gaoxiao']).strip()
+                    quote_source = 'api.aa1.cn'
+        except Exception:
+            pass
+
+    image_url = ''
+    image_source = ''
+    if need_image:
+        if pet_type == 'dog':
+            try:
+                r_d = _PROXY_SESSION.get('https://dog.ceo/api/breeds/image/random', headers=_PROXY_HEADERS, timeout=4.5)
+                if r_d.status_code == 200:
+                    dj = r_d.json()
+                    if dj.get('status') == 'success' and dj.get('message'):
+                        image_url = dj['message']
+                        image_source = 'dog.ceo'
+            except Exception:
+                pass
+        else:
+            try:
+                r_c = _PROXY_SESSION.get('https://api.thecatapi.com/v1/images/search', headers=_PROXY_HEADERS, timeout=4.5)
+                if r_c.status_code == 200:
+                    cj = r_c.json()
+                    if isinstance(cj, list) and cj and cj[0].get('url'):
+                        image_url = cj[0]['url']
+                        image_source = 'thecatapi.com'
+            except Exception:
+                pass
+            if not image_url:
+                try:
+                    r_c2 = _PROXY_SESSION.get('https://cataas.com/cat?json=true', headers=_PROXY_HEADERS, timeout=4.5)
+                    if r_c2.status_code == 200:
+                        c2j = r_c2.json()
+                        if c2j.get('url'):
+                            image_url = c2j['url'] if c2j['url'].startswith('http') else f"https://cataas.com{c2j['url']}"
+                            image_source = 'cataas.com'
+                except Exception:
+                    pass
+
+    return jsonify({
+        "status": "ok",
+        "quote": quote_text or "今天也要元气满满地把 3C 机型排得整整齐齐喵！",
+        "quote_source": quote_source or "builtin",
+        "image_url": image_url,
+        "image_source": image_source,
+    })
 
 
 if __name__ == '__main__':

@@ -22,6 +22,7 @@
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body {
@@ -2931,7 +2932,7 @@
     };
 
     // ==========================================
-    // 🐾 桌面宠物挂件 (定时饥饿 + 多美食投喂 + 可拖拽)
+    // 🐾 3D 立体桌面宠物挂件 (Three.js 3D手办 + 第三方API联动 + 定时饥饿 + 投喂)
     // ==========================================
     const DesktopPet = {
       STORAGE_KEY: '3c_desktop_pet_v1',
@@ -2941,6 +2942,7 @@
         hunger: 82,
         affection: 15,
         feedCount: 0,
+        skin: 'orange',
         lastTickAt: Date.now(),
         hidden: false,
         left: null,
@@ -2950,12 +2952,25 @@
       dragMoved: false,
       tickTimer: null,
       countdownTimer: null,
+      pointerNDC: { x: 0, y: 0 },
+      threeCtx: null,
+      jumpVel: 0,
+      jumpY: 0,
+      spinBoost: 0,
+      blinkProgress: 0,
+      nextBlinkAt: 0,
+
+      skins: {
+        orange: { name: '招财橘猫', body: 0xffa94d, belly: 0xfff3e0, earInner: 0xff8fa3, collar: 0xef4444, bell: 0xfacc15, eye: 0x1e293b, cheek: 0xff758f, cyber: false },
+        calico: { name: '软萌团子', body: 0xf8fafc, belly: 0xffffff, earInner: 0xf472b6, collar: 0x3b82f6, bell: 0xfde047, eye: 0x0f172a, cheek: 0xfda4af, earTip: 0x334155, cyber: false },
+        cyber: { name: '赛博机甲喵', body: 0xcbd5e1, belly: 0x64748b, earInner: 0x38bdf8, collar: 0x6366f1, bell: 0x22d3ee, eye: 0x06b6d4, cheek: 0x38bdf8, cyber: true }
+      },
 
       foods: {
-        fish: { name: '小鱼干', icon: '🐟', hunger: 20, affection: 4, quote: '咔嚓咔嚓~ 小鱼干真香喵！' },
-        drumstick: { name: '香脆鸡腿', icon: '🍗', hunger: 35, affection: 6, quote: '大鸡腿太顶了，搬砖更有力气！' },
-        milktea: { name: '冰美式/奶茶', icon: '🧋', hunger: 15, affection: 10, quote: '快乐水续命成功，一起加油喵~' },
-        can: { name: '豪华猫罐头', icon: '🥫', hunger: 50, affection: 12, quote: '哇！五星级主厨罐头，幸福转圈圈！' }
+        fish: { name: '小鱼干', icon: '🐟', hunger: 20, affection: 4, color: 0x38bdf8, quote: '咔嚓咔嚓~ 小鱼干真香喵！' },
+        drumstick: { name: '香脆鸡腿', icon: '🍗', hunger: 35, affection: 6, color: 0xf97316, quote: '大鸡腿太顶了，搬砖更有力气！' },
+        milktea: { name: '冰美式/奶茶', icon: '🧋', hunger: 15, affection: 10, color: 0xd97706, quote: '快乐水续命成功，一起加油喵~' },
+        can: { name: '豪华猫罐头', icon: '🥫', hunger: 50, affection: 12, color: 0x10b981, quote: '哇！五星级主厨罐头，幸福转圈圈！' }
       },
 
       init() {
@@ -2965,12 +2980,416 @@
         this.applyVisibility();
         this.render();
         this.bindDrag();
+        this.bindMouseTrack();
+        this.init3DScene();
 
         if (this.tickTimer) clearInterval(this.tickTimer);
         this.tickTimer = setInterval(() => this.onHungerTick(), this.DECAY_INTERVAL_MS);
 
         if (this.countdownTimer) clearInterval(this.countdownTimer);
         this.countdownTimer = setInterval(() => this.updateCountdownText(), 1000);
+      },
+
+      bindMouseTrack() {
+        window.addEventListener('mousemove', (e) => {
+          const widget = document.getElementById('desktop-pet-widget');
+          if (!widget || this.state.hidden) return;
+          const rect = widget.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          this.pointerNDC.x = Math.max(-1, Math.min(1, (e.clientX - cx) / 360));
+          this.pointerNDC.y = Math.max(-1, Math.min(1, (e.clientY - cy) / 320));
+        }, { passive: true });
+      },
+
+      init3DScene() {
+        const canvas = document.getElementById('pet-3d-canvas');
+        const fallback = document.getElementById('pet-emoji-face');
+        if (!canvas) return;
+        if (typeof THREE === 'undefined') {
+          if (!this._triedBackupCdn) {
+            this._triedBackupCdn = true;
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';
+            s.onload = () => this.init3DScene();
+            s.onerror = () => {
+              if (fallback) fallback.classList.remove('hidden');
+              canvas.classList.add('hidden');
+            };
+            document.head.appendChild(s);
+            return;
+          }
+          if (fallback) fallback.classList.remove('hidden');
+          canvas.classList.add('hidden');
+          return;
+        }
+        if (fallback) fallback.classList.add('hidden');
+        canvas.classList.remove('hidden');
+
+        try {
+          const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          renderer.setSize(92, 92, false);
+          if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+          camera.position.set(0, 0.45, 4.35);
+          camera.lookAt(0, 0.12, 0);
+
+          const amb = new THREE.AmbientLight(0xffffff, 0.72);
+          scene.add(amb);
+
+          const hemi = new THREE.HemisphereLight(0xfff7ed, 0xc7d2fe, 0.85);
+          hemi.position.set(0, 4, 0);
+          scene.add(hemi);
+
+          const keyLight = new THREE.DirectionalLight(0xfffbeb, 1.05);
+          keyLight.position.set(2.5, 4.2, 3.5);
+          scene.add(keyLight);
+
+          const rimLight = new THREE.PointLight(0x93c5fd, 0.75, 12);
+          rimLight.position.set(-2.8, 1.8, -2.2);
+          scene.add(rimLight);
+
+          // 底部柔和阴影圆盘
+          const shadowGeo = new THREE.CircleGeometry(0.82, 32);
+          const shadowMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.14 });
+          const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+          shadowMesh.rotation.x = -Math.PI / 2;
+          shadowMesh.position.y = -0.92;
+          scene.add(shadowMesh);
+
+          const root = new THREE.Group();
+          scene.add(root);
+
+          this.threeCtx = {
+            renderer,
+            scene,
+            camera,
+            root,
+            shadowMesh,
+            particles: [],
+            parts: null
+          };
+          this.build3DPetModel(this.state.skin || 'orange');
+          this.nextBlinkAt = performance.now() + 2200;
+
+          const clock = new THREE.Clock();
+          const loop = (now) => {
+            requestAnimationFrame(loop);
+            if (!this.threeCtx || this.state.hidden) return;
+            const dt = Math.min(0.05, clock.getDelta());
+            this.animate3D(now, dt);
+            renderer.render(scene, camera);
+          };
+          requestAnimationFrame(loop);
+        } catch (err) {
+          console.warn('WebGL 3D 初始化降级:', err);
+          if (fallback) fallback.classList.remove('hidden');
+          if (canvas) canvas.classList.add('hidden');
+        }
+      },
+
+      build3DPetModel(skinKey) {
+        if (!this.threeCtx) return;
+        const { root } = this.threeCtx;
+        while (root.children.length > 0) {
+          root.remove(root.children[0]);
+        }
+        const sk = this.skins[skinKey] || this.skins.orange;
+
+        const matBody = new THREE.MeshStandardMaterial({ color: sk.body, roughness: sk.cyber ? 0.25 : 0.55, metalness: sk.cyber ? 0.45 : 0.05 });
+        const matBelly = new THREE.MeshStandardMaterial({ color: sk.belly, roughness: 0.65, metalness: 0.02 });
+        const matEarIn = new THREE.MeshStandardMaterial({ color: sk.earInner, roughness: 0.4, emissive: sk.cyber ? 0x0284c7 : 0x000000, emissiveIntensity: sk.cyber ? 0.5 : 0 });
+        const matEarOut = sk.earTip ? new THREE.MeshStandardMaterial({ color: sk.earTip, roughness: 0.55 }) : matBody;
+        const matCollar = new THREE.MeshStandardMaterial({ color: sk.collar, roughness: 0.35, metalness: 0.15 });
+        const matBell = new THREE.MeshStandardMaterial({ color: sk.bell, roughness: 0.2, metalness: 0.75, emissive: sk.cyber ? 0x06b6d4 : 0x422006, emissiveIntensity: sk.cyber ? 0.6 : 0.15 });
+        const matEye = new THREE.MeshStandardMaterial({ color: sk.eye, roughness: 0.1, metalness: 0.2, emissive: sk.cyber ? 0x22d3ee : 0x000000, emissiveIntensity: sk.cyber ? 0.8 : 0 });
+        const matWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const matCheek = new THREE.MeshStandardMaterial({ color: sk.cheek, roughness: 0.5, transparent: true, opacity: 0.8 });
+        const matNose = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.35 });
+
+        const bodyGroup = new THREE.Group();
+        root.add(bodyGroup);
+
+        // Q 版圆润躯干
+        const torso = new THREE.Mesh(new THREE.SphereGeometry(0.62, 28, 24), matBody);
+        torso.scale.set(0.95, 0.96, 0.88);
+        torso.position.set(0, -0.34, 0);
+        bodyGroup.add(torso);
+
+        // 肚皮圆斑
+        const belly = new THREE.Mesh(new THREE.SphereGeometry(0.45, 24, 20), matBelly);
+        belly.scale.set(0.88, 0.9, 0.65);
+        belly.position.set(0, -0.38, 0.3);
+        bodyGroup.add(belly);
+
+        // 四只小短爪
+        const pawGeo = new THREE.SphereGeometry(0.17, 18, 16);
+        const leftArm = new THREE.Mesh(pawGeo, matBelly);
+        leftArm.scale.set(0.9, 1.25, 0.9);
+        leftArm.position.set(-0.48, -0.32, 0.28);
+        leftArm.rotation.z = 0.35;
+        bodyGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(pawGeo, matBelly);
+        rightArm.scale.set(0.9, 1.25, 0.9);
+        rightArm.position.set(0.48, -0.32, 0.28);
+        rightArm.rotation.z = -0.35;
+        bodyGroup.add(rightArm);
+
+        const leftFoot = new THREE.Mesh(pawGeo, matBelly);
+        leftFoot.scale.set(1.05, 0.72, 1.25);
+        leftFoot.position.set(-0.28, -0.84, 0.32);
+        bodyGroup.add(leftFoot);
+
+        const rightFoot = new THREE.Mesh(pawGeo, matBelly);
+        rightFoot.scale.set(1.05, 0.72, 1.25);
+        rightFoot.position.set(0.28, -0.84, 0.32);
+        bodyGroup.add(rightFoot);
+
+        // 灵动 3D 小尾巴
+        const tailGroup = new THREE.Group();
+        tailGroup.position.set(0, -0.62, -0.45);
+        const tail1 = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), matBody);
+        tail1.scale.set(0.85, 0.85, 2.1);
+        tail1.position.set(0, 0.14, -0.18);
+        tail1.rotation.x = 0.65;
+        const tailTip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 14), matBelly);
+        tailTip.position.set(0, 0.36, -0.36);
+        tailGroup.add(tail1, tailTip);
+        bodyGroup.add(tailGroup);
+
+        // 项圈 + 金铃铛
+        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.065, 12, 28), matCollar);
+        collar.rotation.x = Math.PI / 2 + 0.12;
+        collar.position.set(0, 0.08, 0.04);
+        bodyGroup.add(collar);
+
+        const bell = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), matBell);
+        bell.position.set(0, 0.02, 0.48);
+        bodyGroup.add(bell);
+
+        // 大头 Group（随光标转头）
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 0.54, 0.05);
+        bodyGroup.add(headGroup);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.68, 32, 28), matBody);
+        head.scale.set(1.08, 0.94, 0.98);
+        headGroup.add(head);
+
+        // 脸颊奶白嘴套
+        const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), matBelly);
+        muzzle.scale.set(1.25, 0.85, 0.72);
+        muzzle.position.set(0, -0.14, 0.52);
+        headGroup.add(muzzle);
+
+        // 3D 猫耳朵
+        const makeEar = (side) => {
+          const g = new THREE.Group();
+          g.position.set(side * 0.45, 0.48, 0.02);
+          g.rotation.z = side * -0.32;
+          const outer = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.46, 20), matEarOut);
+          outer.position.y = 0.14;
+          const inner = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 16), matEarIn);
+          inner.position.set(0, 0.11, 0.07);
+          g.add(outer, inner);
+          return g;
+        };
+        const leftEar = makeEar(-1);
+        const rightEar = makeEar(1);
+        headGroup.add(leftEar, rightEar);
+
+        // 水汪汪 3D 大眼睛 + 高光点
+        const makeEye = (side) => {
+          const eg = new THREE.Group();
+          eg.position.set(side * 0.26, 0.04, 0.58);
+          const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 16), matEye);
+          ball.scale.set(1, 1.15, 0.65);
+          const shine = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), matWhite);
+          shine.position.set(0.035, 0.042, 0.065);
+          const shine2 = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), matWhite);
+          shine2.position.set(-0.032, -0.025, 0.065);
+          eg.add(ball, shine, shine2);
+          return eg;
+        };
+        const leftEye = makeEye(-1);
+        const rightEye = makeEye(1);
+        headGroup.add(leftEye, rightEye);
+
+        // 腮红与粉嫩小鼻子
+        const cheekGeo = new THREE.SphereGeometry(0.095, 14, 12);
+        const leftCheek = new THREE.Mesh(cheekGeo, matCheek);
+        leftCheek.scale.set(1.2, 0.75, 0.4);
+        leftCheek.position.set(-0.42, -0.1, 0.52);
+        const rightCheek = new THREE.Mesh(cheekGeo, matCheek);
+        rightCheek.scale.set(1.2, 0.75, 0.4);
+        rightCheek.position.set(0.42, -0.1, 0.52);
+        headGroup.add(leftCheek, rightCheek);
+
+        const nose = new THREE.Mesh(new THREE.SphereGeometry(0.062, 14, 12), matNose);
+        nose.scale.set(1.25, 0.85, 0.8);
+        nose.position.set(0, -0.07, 0.68);
+        headGroup.add(nose);
+
+        this.threeCtx.parts = {
+          bodyGroup,
+          headGroup,
+          leftEar,
+          rightEar,
+          leftEye,
+          rightEye,
+          leftArm,
+          rightArm,
+          tailGroup
+        };
+      },
+
+      spawn3DBurst(colorHex = 0xfacc15) {
+        if (!this.threeCtx || typeof THREE === 'undefined') return;
+        const { scene, particles } = this.threeCtx;
+        const geo = new THREE.OctahedronGeometry(0.09, 0);
+        for (let i = 0; i < 8; i++) {
+          const mat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? colorHex : 0xff758f, transparent: true, opacity: 1 });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set((Math.random() - 0.5) * 0.6, 0.5, 0.4);
+          scene.add(mesh);
+          particles.push({
+            mesh,
+            vx: (Math.random() - 0.5) * 1.9,
+            vy: 1.5 + Math.random() * 1.6,
+            vz: (Math.random() - 0.5) * 1.2,
+            life: 0,
+            maxLife: 0.9
+          });
+        }
+      },
+
+      animate3D(now, dt) {
+        const ctx = this.threeCtx;
+        if (!ctx || !ctx.parts) return;
+        const { root, shadowMesh, particles, parts } = ctx;
+        const t = now * 0.001;
+        const h = this.state.hunger;
+        const isHungry = h < 35;
+
+        // 跳跃物理（投喂/互动时弹跳）
+        if (this.jumpY > 0 || this.jumpVel !== 0) {
+          this.jumpY += this.jumpVel * dt;
+          this.jumpVel -= 14 * dt;
+          if (this.jumpY <= 0) {
+            this.jumpY = 0;
+            this.jumpVel = 0;
+          }
+        }
+        if (this.spinBoost > 0) {
+          this.spinBoost = Math.max(0, this.spinBoost - dt * 4.5);
+        }
+
+        // 呼吸上下浮沉 + 饥饿发抖
+        const idleY = isHungry ? Math.sin(t * 2.2) * 0.025 - 0.06 : Math.sin(t * 3.1) * 0.05;
+        const shiverX = isHungry ? Math.sin(t * 28) * 0.025 : 0;
+        root.position.y = idleY + this.jumpY;
+        root.position.x = shiverX;
+        root.rotation.y += (this.spinBoost * Math.PI * 2) * dt;
+        if (this.spinBoost === 0) {
+          root.rotation.y += (0 - root.rotation.y) * Math.min(1, dt * 6);
+        }
+
+        // 阴影随高度缩放
+        const sScale = Math.max(0.55, 1 - this.jumpY * 0.35);
+        shadowMesh.scale.set(sScale, sScale, 1);
+
+        // 头部平滑注视鼠标光标
+        const targetHeadY = this.pointerNDC.x * 0.42;
+        const targetHeadX = (isHungry ? 0.18 : 0) + this.pointerNDC.y * 0.25;
+        parts.headGroup.rotation.y += (targetHeadY - parts.headGroup.rotation.y) * Math.min(1, dt * 7);
+        parts.headGroup.rotation.x += (targetHeadX - parts.headGroup.rotation.x) * Math.min(1, dt * 7);
+
+        // 饥饿耳垂 vs 开心抖耳
+        const baseEarAngle = isHungry ? 0.68 : 0.32 + Math.sin(t * 4) * 0.05;
+        parts.leftEar.rotation.z = baseEarAngle;
+        parts.rightEar.rotation.z = -baseEarAngle;
+
+        // 小爪子挥动与尾巴摇摆
+        const wave = isHungry ? 0.1 : Math.sin(t * 4.2) * 0.16;
+        parts.leftArm.rotation.z = 0.35 + wave;
+        parts.rightArm.rotation.z = -0.35 - wave;
+        parts.tailGroup.rotation.y = Math.sin(t * (isHungry ? 2.0 : 5.5)) * (isHungry ? 0.15 : 0.42);
+
+        // 定时眨眼
+        if (now >= this.nextBlinkAt) {
+          this.blinkProgress = 1;
+          this.nextBlinkAt = now + 2600 + Math.random() * 2400;
+        }
+        let eyeScaleY = isHungry ? 0.72 : 1;
+        if (this.blinkProgress > 0) {
+          this.blinkProgress = Math.max(0, this.blinkProgress - dt * 7.5);
+          eyeScaleY = Math.max(0.12, Math.abs(this.blinkProgress - 0.5) * 2);
+        }
+        parts.leftEye.scale.y = eyeScaleY;
+        parts.rightEye.scale.y = eyeScaleY;
+
+        // 3D 反馈粒子更新
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life += dt;
+          p.mesh.position.x += p.vx * dt;
+          p.mesh.position.y += p.vy * dt;
+          p.mesh.position.z += p.vz * dt;
+          p.vy -= 3.2 * dt;
+          p.mesh.rotation.x += dt * 5;
+          p.mesh.rotation.y += dt * 6;
+          p.mesh.material.opacity = Math.max(0, 1 - p.life / p.maxLife);
+          if (p.life >= p.maxLife) {
+            ctx.scene.remove(p.mesh);
+            p.mesh.material.dispose();
+            particles.splice(i, 1);
+          }
+        }
+      },
+
+      setSkin(skinKey) {
+        if (!this.skins[skinKey]) return;
+        this.state.skin = skinKey;
+        this.saveState();
+        this.build3DPetModel(skinKey);
+        this.jumpVel = 3.2;
+        this.spinBoost = 0.9;
+        this.render();
+        this.showSpeech(`变身成功！我是3D「${this.skins[skinKey].name}」喵 ✨`);
+      },
+
+      async fetchThirdPartyCompanion(mode = 'cat', withImage = true) {
+        const imgWrap = document.getElementById('pet-api-photo-wrap');
+        const imgEl = document.getElementById('pet-api-photo');
+        const srcEl = document.getElementById('pet-api-source');
+        const quoteEl = document.getElementById('pet-api-quote');
+        if (withImage && srcEl) srcEl.innerText = '正在调用第三方萌宠 API...';
+
+        try {
+          const res = await fetch(`/api/pet/companion?type=${encodeURIComponent(mode)}&image=${withImage ? '1' : '0'}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.quote) {
+              this.showSpeech(data.quote);
+              if (quoteEl) quoteEl.innerText = `${data.quote} (${data.quote_source || 'API'})`;
+            }
+            if (withImage && data.image_url && imgEl && imgWrap) {
+              imgEl.referrerPolicy = 'no-referrer';
+              imgEl.src = data.image_url;
+              imgWrap.classList.remove('hidden');
+              if (srcEl) srcEl.innerText = `来源: ${data.image_source || '第三方API'}`;
+              this.jumpVel = 2.6;
+              this.spawn3DBurst(0x38bdf8);
+            }
+            return;
+          }
+        } catch (e) {}
+
+        this.showSpeech('今天也要开心工作，随时回来喂我小鱼干哦喵~');
       },
 
       loadState() {
@@ -3026,6 +3445,9 @@
         this.state.lastTickAt = Date.now();
         this.saveState();
         this.render();
+        this.jumpVel = 4.2;
+        this.spinBoost = 1.0;
+        this.spawn3DBurst(food.color);
         const gained = this.state.hunger - before;
         this.spawnFloatFeedback(`${food.icon} +${gained > 0 ? gained : food.affection}${gained > 0 ? ' 饱食' : ' 亲密'}`);
         this.showSpeech(this.state.hunger >= 95 ? '吃得好撑呀，谢谢主人投喂 ❤️' : food.quote);
@@ -3035,14 +3457,10 @@
         this.state.affection = Math.min(9999, this.state.affection + 5);
         this.saveState();
         this.render();
+        this.jumpVel = 3.0;
+        this.spawn3DBurst(0xf472b6);
         this.spawnFloatFeedback('💕 +5 亲密');
-        const lines = [
-          '呼噜呼噜~ 被摸头好舒服喵！',
-          '今天也要把 3C 机型排得整整齐齐！',
-          '主人辛苦了，记得多喝水多眨眼~',
-          '再摸两下我就帮你守护云端数据！'
-        ];
-        this.showSpeech(lines[Math.floor(Math.random() * lines.length)]);
+        this.fetchThirdPartyCompanion('cat', false);
       },
 
       togglePanel() {
@@ -3083,15 +3501,15 @@
         this.state.top = null;
         this.saveState();
         this.applyPosition();
-        FunSuite.showToast('🐾 桌面宠物已回到右下角默认位置');
+        FunSuite.showToast('🐾 3D 桌面宠物已回到右下角默认位置');
       },
 
       applyPosition() {
         const widget = document.getElementById('desktop-pet-widget');
         if (!widget) return;
         if (typeof this.state.left === 'number' && typeof this.state.top === 'number') {
-          const maxL = Math.max(12, window.innerWidth - 96);
-          const maxT = Math.max(12, window.innerHeight - 96);
+          const maxL = Math.max(12, window.innerWidth - 110);
+          const maxT = Math.max(12, window.innerHeight - 110);
           widget.style.left = `${Math.min(maxL, Math.max(12, this.state.left))}px`;
           widget.style.top = `${Math.min(maxT, Math.max(12, this.state.top))}px`;
           widget.style.right = 'auto';
@@ -3100,7 +3518,7 @@
           widget.style.left = 'auto';
           widget.style.top = 'auto';
           widget.style.right = '24px';
-          widget.style.bottom = '24px';
+          widget.style.bottom = '20px';
         }
       },
 
@@ -3163,7 +3581,7 @@
         if (this._speechTimer) clearTimeout(this._speechTimer);
         this._speechTimer = setTimeout(() => {
           bubble.classList.add('hidden');
-        }, 4200);
+        }, 4800);
       },
 
       spawnFloatFeedback(text) {
@@ -3191,7 +3609,6 @@
       render() {
         const h = this.state.hunger;
         const emojiEl = document.getElementById('pet-emoji-face');
-        const avatarEl = document.getElementById('pet-avatar-btn');
         const alertBadge = document.getElementById('pet-hungry-badge');
         const barEl = document.getElementById('pet-hunger-bar');
         const hungerValEl = document.getElementById('pet-hunger-val');
@@ -3199,9 +3616,10 @@
         const affectionEl = document.getElementById('pet-affection-val');
         const feedCountEl = document.getElementById('pet-feed-count');
         const levelEl = document.getElementById('pet-level-badge');
+        const nameEl = document.getElementById('pet-skin-name');
 
         let moodText = '元气满满 ✨';
-        let face = '😺';
+        let face = '😻';
         let barColor = 'bg-emerald-500';
         let isHungry = false;
 
@@ -3226,10 +3644,6 @@
         }
 
         if (emojiEl) emojiEl.innerText = face;
-        if (avatarEl) {
-          avatarEl.classList.remove('pet-bob', 'pet-hungry-shake');
-          avatarEl.classList.add(isHungry ? 'pet-hungry-shake' : 'pet-bob');
-        }
         if (alertBadge) alertBadge.classList.toggle('hidden', !isHungry);
         if (barEl) {
           barEl.style.width = `${h}%`;
@@ -3239,6 +3653,15 @@
         if (moodTextEl) moodTextEl.innerText = moodText;
         if (affectionEl) affectionEl.innerText = String(this.state.affection);
         if (feedCountEl) feedCountEl.innerText = String(this.state.feedCount);
+        if (nameEl) nameEl.innerText = (this.skins[this.state.skin] || this.skins.orange).name;
+        ['orange', 'calico', 'cyber'].forEach(sk => {
+          const btn = document.getElementById(`pet-skin-btn-${sk}`);
+          if (btn) {
+            btn.className = sk === this.state.skin
+              ? 'px-2 py-0.5 rounded-md bg-amber-500 text-white font-semibold shadow-sm text-[10px]'
+              : 'px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px] hover:bg-gray-200';
+          }
+        });
         const lv = Math.floor(this.state.affection / 30) + 1;
         if (levelEl) levelEl.innerText = `Lv.${lv}`;
         this.updateCountdownText();
@@ -3574,27 +3997,38 @@
     </div>
   </aside>
 
-  <!-- ==================== 桌面宠物挂件 (定时饥饿 + 投喂 + 可拖拽) ==================== -->
-  <div id="desktop-pet-widget" class="fixed z-45 select-none" style="right: 24px; bottom: 24px; z-index: 45;">
+  <!-- ==================== 3D 立体桌面宠物挂件 (Three.js + 第三方API + 定时饥饿 + 投喂) ==================== -->
+  <div id="desktop-pet-widget" class="fixed z-45 select-none" style="right: 24px; bottom: 20px; z-index: 45;">
     <!-- 轻气泡提醒 -->
-    <div id="pet-speech-bubble" class="hidden absolute bottom-full right-0 mb-2 w-52 px-3 py-2 rounded-xl bg-white/95 dark:bg-[#1E1F22]/95 border border-amber-200 dark:border-gray-700 shadow-lg text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed pointer-events-none">
+    <div id="pet-speech-bubble" class="hidden absolute bottom-full right-0 mb-2 w-56 px-3 py-2 rounded-xl bg-white/95 dark:bg-[#1E1F22]/95 border border-amber-200 dark:border-gray-700 shadow-lg text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed pointer-events-none">
       喵~ 我来陪你一起搬砖啦！
     </div>
 
-    <!-- 投喂与状态交互面板 -->
-    <div id="pet-panel" class="hidden absolute bottom-full right-0 mb-3 w-72 bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-3.5 space-y-3 egg-pop-in">
+    <!-- 投喂与第三方API互动面板 -->
+    <div id="pet-panel" class="hidden absolute bottom-full right-0 mb-2 w-80 bg-white/95 dark:bg-[#1E1F22]/95 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-3.5 space-y-2.5 egg-pop-in">
       <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
         <div class="flex items-center space-x-2">
           <span class="text-lg">🐱</span>
           <div>
             <div class="text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center space-x-1.5">
-              <span>橘猫小助</span>
+              <span id="pet-skin-name">招财橘猫</span>
               <span id="pet-level-badge" class="px-1.5 py-0.5 text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 rounded font-mono">Lv.1</span>
+              <span class="px-1.5 py-0.5 text-[9px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 rounded">3D · API</span>
             </div>
             <div id="pet-mood-text" class="text-[10px] text-gray-400">元气满满 ✨</div>
           </div>
         </div>
         <button onclick="DesktopPet.closePanel()" class="text-gray-400 hover:text-gray-600 text-xs px-1">✕</button>
+      </div>
+
+      <!-- 3D 皮肤切换 -->
+      <div class="flex items-center justify-between text-[10px]">
+        <span class="text-gray-500 font-medium">3D 立体造型：</span>
+        <div class="flex items-center space-x-1">
+          <button id="pet-skin-btn-orange" onclick="DesktopPet.setSkin('orange')">🍊 橘猫</button>
+          <button id="pet-skin-btn-calico" onclick="DesktopPet.setSkin('calico')">🐼 团子</button>
+          <button id="pet-skin-btn-cyber" onclick="DesktopPet.setSkin('cyber')">🤖 赛博喵</button>
+        </div>
       </div>
 
       <!-- 饱食度进度条 -->
@@ -3631,8 +4065,28 @@
         </div>
       </div>
 
+      <!-- 第三方 API 萌宠写真盲盒联动 -->
+      <div class="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700 space-y-1.5">
+        <div class="flex items-center justify-between text-[10px]">
+          <span class="font-semibold text-gray-600 dark:text-gray-300">📸 第三方萌宠写真 API</span>
+          <div class="flex space-x-1">
+            <button onclick="DesktopPet.fetchThirdPartyCompanion('cat', true)" class="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded font-medium">吸猫</button>
+            <button onclick="DesktopPet.fetchThirdPartyCompanion('dog', true)" class="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded font-medium">撸狗</button>
+          </div>
+        </div>
+        <div id="pet-api-photo-wrap" class="hidden space-y-1">
+          <img id="pet-api-photo" referrerpolicy="no-referrer" class="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700" src="" alt="第三方萌宠写真">
+          <div class="flex items-center justify-between text-[9px] text-gray-400">
+            <span id="pet-api-source">TheCatAPI</span>
+          </div>
+        </div>
+        <div id="pet-api-quote" class="text-[10px] text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">
+          点击「摸摸头」或「吸猫/撸狗」，实时联动 Hitokoto / TheCatAPI / DogCEO~
+        </div>
+      </div>
+
       <!-- 互动与操作栏 -->
-      <div class="flex items-center justify-between pt-1.5 border-t border-gray-100 dark:border-gray-800 text-[11px]">
+      <div class="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800 text-[11px]">
         <button onclick="DesktopPet.pat()" class="px-2.5 py-1 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/60 text-pink-600 dark:text-pink-300 rounded-md font-medium transition">
           💕 摸摸头
         </button>
@@ -3643,11 +4097,11 @@
       </div>
     </div>
 
-    <!-- 可拖拽宠物本体按钮 -->
-    <button id="pet-avatar-btn" onclick="DesktopPet.togglePanel()" title="点击投喂橘猫小助 · 按住可拖动位置" class="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-100 via-orange-50 to-white dark:from-gray-800 dark:to-gray-700 border-2 border-amber-300/80 dark:border-amber-500/50 shadow-xl flex flex-col items-center justify-center cursor-grab active:cursor-grabbing hover:scale-105 transition pet-bob">
-      <span id="pet-emoji-face" class="text-2xl leading-none">😻</span>
-      <span class="text-[9px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">小助</span>
-      <span id="pet-hungry-badge" class="hidden absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold shadow animate-bounce">
+    <!-- 3D WebGL 立体宠物本体 (可拖拽 · 跟随鼠标转头) -->
+    <button id="pet-avatar-btn" onclick="DesktopPet.togglePanel()" title="3D 桌面宠物 · 点击喂食/联动API · 按住可拖动位置" class="relative w-[92px] h-[92px] rounded-full bg-gradient-to-b from-amber-50/70 via-white/40 to-orange-100/60 dark:from-gray-800/70 dark:to-gray-900/60 backdrop-blur-md border border-amber-200/70 dark:border-amber-500/30 shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-105 transition">
+      <canvas id="pet-3d-canvas" width="184" height="184" class="w-[92px] h-[92px] pointer-events-none"></canvas>
+      <span id="pet-emoji-face" class="hidden text-4xl leading-none">😻</span>
+      <span id="pet-hungry-badge" class="hidden absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold shadow animate-bounce">
         饿饿🐟
       </span>
     </button>
