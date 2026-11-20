@@ -1433,6 +1433,9 @@
       }
 
       load(imgOrSrc, frameIndices = null) {
+        this.stop();
+        this.onFrame = null;
+        this.onFinished = null;
         return new Promise((resolve) => {
           this.frameIndices = frameIndices;
           this.currentFrame = 0;
@@ -1504,7 +1507,11 @@
               this.currentFrame = total - 1;
               this.stop();
               this.draw();
-              if (this.onFinished) this.onFinished();
+              if (this.onFinished) {
+                const fn = this.onFinished;
+                this.onFinished = null;
+                fn();
+              }
               return;
             }
           }
@@ -1518,6 +1525,8 @@
           clearInterval(this.timer);
           this.timer = null;
         }
+        this.onFrame = null;
+        this.onFinished = null;
       }
     }
 
@@ -1806,6 +1815,17 @@
         const btn2 = document.getElementById('monster-btn-yes2');
         const btnCancel = document.getElementById('monster-btn-cancel');
 
+        let hasExecutedDelete = false;
+        const triggerDeleteOnce = () => {
+          if (hasExecutedDelete) return;
+          hasExecutedDelete = true;
+          if (typeof onConfirmDelete === 'function') {
+            const cb = onConfirmDelete;
+            onConfirmDelete = null;
+            cb();
+          }
+        };
+
         const doKickAndExplode = async () => {
           btn1.onclick = null;
           btn2.onclick = null;
@@ -1822,6 +1842,7 @@
           await this.monsterAnimator.load(this.images.kick || '/monster/kick.png');
           this.monsterAnimator.onFrame = (frameIdx) => {
             if (frameIdx === 5) {
+              this.monsterAnimator.onFrame = null; // 确保仅触发一次，不让后续动作沿用此监听
               // 命中瞬间：播放爆炸声音 + 屏幕震击 + 爆炸粒子 + 数据实际删除
               this.playBoom();
               document.body.classList.add('monster-screen-shake');
@@ -1831,16 +1852,25 @@
               expWrap.style.top = `${targetY}px`;
               expWrap.classList.remove('hidden');
               this.explosionAnimator.load(this.images.explosion || '/monster/explosion.png').then(() => {
-                this.explosionAnimator.onFinished = () => expWrap.classList.add('hidden');
+                this.explosionAnimator.onFinished = () => {
+                  this.explosionAnimator.stop();
+                  expWrap.classList.add('hidden');
+                };
                 this.explosionAnimator.play(14, false);
               });
 
-              if (typeof onConfirmDelete === 'function') onConfirmDelete();
+              triggerDeleteOnce();
             }
           };
 
           this.monsterAnimator.onFinished = async () => {
+            this.monsterAnimator.stop();
+            this.monsterAnimator.onFrame = null;
+            this.monsterAnimator.onFinished = null;
             document.body.classList.remove('monster-screen-shake');
+
+            // 兜底：若低帧率丢帧未触发第5帧，动作结束时必须且仅执行一次真实删除
+            triggerDeleteOnce();
 
             // Phase 4: 雷欧奥特曼登场！
             await this.monsterAnimator.load(this.images.leo || '/monster/leo.png');
@@ -1849,6 +1879,10 @@
             bubble.classList.add('opacity-100', 'scale-100');
 
             this.monsterAnimator.onFinished = async () => {
+              this.monsterAnimator.stop();
+              this.monsterAnimator.onFrame = null;
+              this.monsterAnimator.onFinished = null;
+
               // Phase 5: 大将怪兽出场飞行动效，飞天逃离！
               bubbleText.textContent = '溜了溜了~ 💨';
               await this.monsterAnimator.load(this.images.fly || '/monster/fly.png');
@@ -1858,6 +1892,9 @@
               wrap.style.transform = `translate(${window.innerWidth + 200}px, -180px) scale(0.65)`;
 
               setTimeout(() => {
+                this.monsterAnimator.stop();
+                this.monsterAnimator.onFrame = null;
+                this.monsterAnimator.onFinished = null;
                 this.stopBgm();
                 backdrop.classList.remove('opacity-100');
                 backdrop.classList.add('opacity-0');
@@ -1893,6 +1930,9 @@
           wrap.style.transform = `translate(${window.innerWidth + 100}px, -150px) scale(0.65)`;
 
           setTimeout(() => {
+            this.monsterAnimator.stop();
+            this.monsterAnimator.onFrame = null;
+            this.monsterAnimator.onFinished = null;
             this.stopBgm();
             backdrop.classList.remove('opacity-100');
             backdrop.classList.add('opacity-0');
@@ -1971,20 +2011,20 @@
     };
 
     function deleteSingleRow(idx) {
-      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
-        MonsterDeleter.destroyRow(idx, () => {
-          recordRevision++;
-          isUserDirty = true;
+      const doDelete = () => {
+        recordRevision++;
+        isUserDirty = true;
+        if (idx >= 0 && idx < currentRecords.length) {
           currentRecords.splice(idx, 1);
           renderTable();
           saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
-        });
+        }
+      };
+
+      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
+        MonsterDeleter.destroyRow(idx, doDelete);
       } else {
-        recordRevision++;
-        isUserDirty = true;
-        currentRecords.splice(idx, 1);
-        renderTable();
-        saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
+        doDelete();
       }
     }
 
@@ -1993,20 +2033,22 @@
       const indices = Array.from(checkboxes).map(c => parseInt(c.getAttribute('data-index'))).sort((a, b) => b - a);
       if (!indices.length) { alert('请先勾选需要删除的行！'); return; }
 
-      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
-        MonsterDeleter.destroySelected(indices, () => {
-          recordRevision++;
-          isUserDirty = true;
-          indices.forEach(idx => currentRecords.splice(idx, 1));
-          renderTable();
-          saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
-        });
-      } else {
+      const doDeleteSelected = () => {
         recordRevision++;
         isUserDirty = true;
-        indices.forEach(idx => currentRecords.splice(idx, 1));
+        indices.forEach(idx => {
+          if (idx >= 0 && idx < currentRecords.length) {
+            currentRecords.splice(idx, 1);
+          }
+        });
         renderTable();
         saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
+      };
+
+      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
+        MonsterDeleter.destroySelected(indices, doDeleteSelected);
+      } else {
+        doDeleteSelected();
       }
     }
 
