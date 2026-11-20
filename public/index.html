@@ -1434,8 +1434,6 @@
 
       load(imgOrSrc, frameIndices = null) {
         this.stop();
-        this.onFrame = null;
-        this.onFinished = null;
         return new Promise((resolve) => {
           this.frameIndices = frameIndices;
           this.currentFrame = 0;
@@ -1525,6 +1523,9 @@
           clearInterval(this.timer);
           this.timer = null;
         }
+      }
+
+      resetCallbacks() {
         this.onFrame = null;
         this.onFinished = null;
       }
@@ -1776,13 +1777,14 @@
         wrap.style.left = '-180px';
         wrap.style.top = `${endY}px`;
         bubble.classList.remove('opacity-100', 'scale-100');
-        bubble.classList.add('opacity-0', 'scale-90');
+        bubble.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
         choices.classList.remove('opacity-100', 'scale-100');
-        choices.classList.add('opacity-0', 'scale-90');
+        choices.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
         expWrap.classList.add('hidden');
 
         // Phase 1: 走路入场动效 + BGM
         this.playBgm();
+        this.monsterAnimator.resetCallbacks();
         this.monsterAnimator.load(this.images.walk || '/monster/walk.png').then(() => {
           this.monsterAnimator.play(8, true);
 
@@ -1795,15 +1797,16 @@
           // Phase 2: 停下、指着文件、怪兽说话、弹出「喂，是这个吗？」与选项按钮
           setTimeout(async () => {
             this.monsterAnimator.stop();
+            this.monsterAnimator.resetCallbacks();
             this.playVoice();
             // 播放指着文件动作 (第 11-14 帧)
             await this.monsterAnimator.load(this.images.point || '/monster/point.png', [11, 12, 13, 14]);
             this.monsterAnimator.onFinished = () => {
               // 弹出经典对话气泡与选项按钮
               bubbleText.textContent = promptText || '喂，是这个吗？';
-              bubble.classList.remove('opacity-0', 'scale-90');
+              bubble.classList.remove('opacity-0', 'scale-90', 'pointer-events-none');
               bubble.classList.add('opacity-100', 'scale-100');
-              choices.classList.remove('opacity-0', 'scale-90');
+              choices.classList.remove('opacity-0', 'scale-90', 'pointer-events-none');
               choices.classList.add('opacity-100', 'scale-100');
             };
             this.monsterAnimator.play(8, false);
@@ -1834,11 +1837,12 @@
 
           // 隐藏气泡与按钮
           bubble.classList.remove('opacity-100', 'scale-100');
-          bubble.classList.add('opacity-0', 'scale-90');
+          bubble.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
           choices.classList.remove('opacity-100', 'scale-100');
-          choices.classList.add('opacity-0', 'scale-90');
+          choices.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
 
           // Phase 3: 踹文件动效 (第5帧命中触发爆炸)
+          this.monsterAnimator.resetCallbacks();
           await this.monsterAnimator.load(this.images.kick || '/monster/kick.png');
           this.monsterAnimator.onFrame = (frameIdx) => {
             if (frameIdx === 5) {
@@ -1865,8 +1869,7 @@
 
           this.monsterAnimator.onFinished = async () => {
             this.monsterAnimator.stop();
-            this.monsterAnimator.onFrame = null;
-            this.monsterAnimator.onFinished = null;
+            this.monsterAnimator.resetCallbacks();
             document.body.classList.remove('monster-screen-shake');
 
             // 兜底：若低帧率丢帧未触发第5帧，动作结束时必须且仅执行一次真实删除
@@ -1875,13 +1878,12 @@
             // Phase 4: 雷欧奥特曼登场！
             await this.monsterAnimator.load(this.images.leo || '/monster/leo.png');
             bubbleText.textContent = '⚡️ 雷欧奥特曼登场！';
-            bubble.classList.remove('opacity-0', 'scale-90');
+            bubble.classList.remove('opacity-0', 'scale-90', 'pointer-events-none');
             bubble.classList.add('opacity-100', 'scale-100');
 
             this.monsterAnimator.onFinished = async () => {
               this.monsterAnimator.stop();
-              this.monsterAnimator.onFrame = null;
-              this.monsterAnimator.onFinished = null;
+              this.monsterAnimator.resetCallbacks();
 
               // Phase 5: 大将怪兽出场飞行动效，飞天逃离！
               bubbleText.textContent = '溜了溜了~ 💨';
@@ -1893,8 +1895,7 @@
 
               setTimeout(() => {
                 this.monsterAnimator.stop();
-                this.monsterAnimator.onFrame = null;
-                this.monsterAnimator.onFinished = null;
+                this.monsterAnimator.resetCallbacks();
                 this.stopBgm();
                 backdrop.classList.remove('opacity-100');
                 backdrop.classList.add('opacity-0');
@@ -1921,8 +1922,9 @@
 
           bubbleText.textContent = '好吧，那不踩了喵~ 🐾';
           choices.classList.remove('opacity-100', 'scale-100');
-          choices.classList.add('opacity-0', 'scale-90');
+          choices.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
 
+          this.monsterAnimator.resetCallbacks();
           await this.monsterAnimator.load(this.images.fly || '/monster/fly.png');
           this.monsterAnimator.play(8, true);
 
@@ -1931,8 +1933,7 @@
 
           setTimeout(() => {
             this.monsterAnimator.stop();
-            this.monsterAnimator.onFrame = null;
-            this.monsterAnimator.onFinished = null;
+            this.monsterAnimator.resetCallbacks();
             this.stopBgm();
             backdrop.classList.remove('opacity-100');
             backdrop.classList.add('opacity-0');
