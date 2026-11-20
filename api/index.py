@@ -23,9 +23,15 @@ from core.dict_manager import dict_manager
 from core.template_manager import TemplateManager
 from core.turso_db import turso_store
 
-app = Flask(__name__)
+PUBLIC_DIR = os.path.join(ROOT_DIR, 'public')
+app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
 
 _VALID_MODULES = {"android", "laptop", "watch"}
+
+
+@app.route('/')
+def index_page():
+    return send_file(os.path.join(PUBLIC_DIR, 'index.html'))
 
 
 def _normalize_module(raw: str) -> str:

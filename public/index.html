@@ -1369,26 +1369,285 @@
     }
 
     // ==========================================
-    // 大将怪兽摧毁删除系统 (MonsterDeleter)
-    // 原型参考: GitHub 531149627/MonsterDeleter (《雷欧奥特曼》淘气怪兽大将)
-    // 特性: 红色瞄准准星锁定 + 经典红头巾怪兽飞踢/践踏 + Web Audio 复古爆炸音效 + 屏幕震击 + 多浏览器云端同步
+    // 大将怪兽摧毁删除系统 (MonsterDeleter · 官方桌面版原版复刻)
+    // 资产与代码逻辑复刻自: GitHub 531149627/MonsterDeleter (《雷欧奥特曼》淘气怪兽大将 + 雷欧登场)
+    // 1. 走路动效 (walk.png) + 原版 BGM (bgm.mp3)
+    // 2. 指着文件 (point.png) + 原版说话声 (voice.mp3) + 经典弹窗「喂，是这个吗？」+「是的」「嘤嘤嘤就是这个」
+    // 3. 用户确认后：踹文件动效 (kick.png) + 第5帧命中触发爆炸 (explosion.png + boom.mp4) + 屏幕震颤 + 数据实质删除
+    // 4. 雷欧登场 (leo.png) 雷欧奥特曼现身
+    // 5. 怪兽飞行动效 (fly.png) 离场飞走
     // ==========================================
+    class MonsterSpriteAnimator {
+      constructor(canvas, cols = 5, rows = 3) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.cols = cols;
+        this.rows = rows;
+        this.img = null;
+        this.frameIndices = null;
+        this.currentFrame = 0;
+        this.timer = null;
+        this.loop = true;
+        this.flip = false;
+        this.onFrame = null;
+        this.onFinished = null;
+      }
+
+      load(imgOrSrc, frameIndices = null) {
+        return new Promise((resolve) => {
+          this.frameIndices = frameIndices;
+          this.currentFrame = 0;
+          if (typeof imgOrSrc === 'string') {
+            const img = new Image();
+            img.src = imgOrSrc;
+            img.onload = () => {
+              this.img = img;
+              this.draw();
+              resolve();
+            };
+            img.onerror = () => resolve();
+          } else if (imgOrSrc && imgOrSrc.complete) {
+            this.img = imgOrSrc;
+            this.draw();
+            resolve();
+          } else if (imgOrSrc) {
+            this.img = imgOrSrc;
+            imgOrSrc.onload = () => {
+              this.draw();
+              resolve();
+            };
+          } else {
+            resolve();
+          }
+        });
+      }
+
+      setFlip(flip) {
+        this.flip = Boolean(flip);
+        this.draw();
+      }
+
+      draw() {
+        if (!this.img) return;
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const actualIdx = this.frameIndices ? this.frameIndices[this.currentFrame] : this.currentFrame;
+        const c = actualIdx % this.cols;
+        const r = Math.floor(actualIdx / this.cols);
+
+        const fw = this.img.width / this.cols;
+        const fh = this.img.height / this.rows;
+
+        ctx.save();
+        if (this.flip) {
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(this.img, c * fw, r * fh, fw, fh, 0, 0, w, h);
+        ctx.restore();
+      }
+
+      play(fps = 8, loop = true) {
+        this.stop();
+        this.loop = loop;
+        this.currentFrame = 0;
+        this.draw();
+        const total = this.frameIndices ? this.frameIndices.length : (this.cols * this.rows);
+        this.timer = setInterval(() => {
+          this.currentFrame++;
+          if (this.currentFrame >= total) {
+            if (this.loop) {
+              this.currentFrame = 0;
+            } else {
+              this.currentFrame = total - 1;
+              this.stop();
+              this.draw();
+              if (this.onFinished) this.onFinished();
+              return;
+            }
+          }
+          this.draw();
+          if (this.onFrame) this.onFrame(this.currentFrame);
+        }, 1000 / fps);
+      }
+
+      stop() {
+        if (this.timer) {
+          clearInterval(this.timer);
+          this.timer = null;
+        }
+      }
+    }
+
     const MonsterDeleter = {
       enabled: true,
       isDestroying: false,
-      audioCtx: null,
+      images: {},
+      audios: null,
+      monsterAnimator: null,
+      explosionAnimator: null,
 
       async init() {
         this.createStage();
+        this.preloadAssets();
         await this.loadCloudSettings();
+      },
+
+      preloadAssets() {
+        const list = ['walk', 'point', 'kick', 'leo', 'fly', 'explosion'];
+        list.forEach((key) => {
+          const img = new Image();
+          img.src = `/monster/${key}.png`;
+          this.images[key] = img;
+        });
       },
 
       createStage() {
         if (document.getElementById('monster-deleter-stage')) return;
         const stage = document.createElement('div');
         stage.id = 'monster-deleter-stage';
-        stage.className = 'fixed inset-0 pointer-events-none z-[9999] overflow-hidden hidden';
+        stage.className = 'fixed inset-0 pointer-events-none z-[9999] overflow-hidden hidden select-none';
+        stage.innerHTML = `
+          <!-- 半透明遮罩层 -->
+          <div id="monster-backdrop" class="absolute inset-0 bg-black/25 opacity-0 transition-opacity duration-300 pointer-events-auto"></div>
+
+          <!-- 怪兽实体主体容器 -->
+          <div id="monster-actor-wrap" class="absolute pointer-events-none z-10" style="left: -200px; top: 100px; width: 140px; height: 250px;">
+            <!-- 气泡对话框 (喂，是这个吗？) -->
+            <div id="monster-bubble" class="absolute -top-16 -left-12 opacity-0 pointer-events-none transition-all duration-200 transform scale-90 whitespace-nowrap">
+              <div class="relative bg-white/95 backdrop-blur-md px-5 py-2.5 rounded-2xl shadow-[0_12px_28px_rgba(0,0,0,0.18)] border border-gray-100 text-center">
+                <span id="monster-bubble-text" class="text-lg font-bold text-gray-900 tracking-tight font-sans">喂，是这个吗？</span>
+                <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white"></div>
+              </div>
+            </div>
+
+            <!-- 怪兽 Canvas 动画画布 -->
+            <canvas id="monster-canvas" width="140" height="250" class="drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)]"></canvas>
+
+            <!-- 选项按钮组 (是的 / 嘤嘤嘤就是这个 / 点错了) -->
+            <div id="monster-choices" class="absolute top-[252px] -left-16 opacity-0 pointer-events-none transition-all duration-200 transform scale-90 flex items-center space-x-2.5 whitespace-nowrap">
+              <button id="monster-btn-yes1" class="px-4 py-2 bg-white/95 hover:bg-blue-600 hover:text-white text-gray-800 border border-gray-200/90 hover:border-blue-600 rounded-full font-bold text-xs shadow-md transition transform hover:scale-105 active:scale-95 cursor-pointer pointer-events-auto">
+                是的
+              </button>
+              <button id="monster-btn-yes2" class="px-4 py-2 bg-white/95 hover:bg-blue-600 hover:text-white text-gray-800 border border-gray-200/90 hover:border-blue-600 rounded-full font-bold text-xs shadow-md transition transform hover:scale-105 active:scale-95 cursor-pointer pointer-events-auto">
+                嘤嘤嘤就是这个
+              </button>
+              <button id="monster-btn-cancel" class="px-2.5 py-1.5 bg-gray-100/90 hover:bg-gray-200 text-gray-500 rounded-full text-[11px] font-medium transition cursor-pointer pointer-events-auto">
+                点错了
+              </button>
+            </div>
+          </div>
+
+          <!-- 爆炸动效画布 -->
+          <div id="monster-explosion-wrap" class="absolute pointer-events-none hidden z-20" style="width: 170px; height: 170px; transform: translate(-50%, -50%);">
+            <canvas id="monster-explosion-canvas" width="170" height="170"></canvas>
+          </div>
+        `;
         document.body.appendChild(stage);
+
+        const mCanvas = document.getElementById('monster-canvas');
+        this.monsterAnimator = new MonsterSpriteAnimator(mCanvas, 5, 3);
+
+        const eCanvas = document.getElementById('monster-explosion-canvas');
+        this.explosionAnimator = new MonsterSpriteAnimator(eCanvas, 5, 3);
+      },
+
+      initAudio() {
+        if (!this.audios) {
+          this.audios = {
+            bgm: new Audio('/monster/bgm.mp3'),
+            voice: new Audio('/monster/voice.mp3'),
+            boom: new Audio('/monster/boom.mp4'),
+          };
+          this.audios.bgm.loop = true;
+          this.audios.bgm.volume = 0.45;
+          this.audios.voice.volume = 0.95;
+          this.audios.boom.volume = 0.8;
+        }
+      },
+
+      playBgm() {
+        this.initAudio();
+        try {
+          this.audios.bgm.currentTime = 0;
+          this.audios.bgm.play().catch(() => {});
+        } catch (e) {}
+      },
+
+      stopBgm() {
+        if (this.audios && this.audios.bgm) {
+          try {
+            this.audios.bgm.pause();
+            this.audios.bgm.currentTime = 0;
+          } catch (e) {}
+        }
+      },
+
+      playVoice() {
+        this.initAudio();
+        try {
+          this.audios.voice.currentTime = 0;
+          this.audios.voice.play().catch(() => {});
+        } catch (e) {}
+      },
+
+      playBoom() {
+        this.initAudio();
+        let played = false;
+        try {
+          this.audios.boom.currentTime = 0;
+          const p = this.audios.boom.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => { played = true; }).catch(() => {
+              this.playSynthBoom();
+            });
+          }
+        } catch (e) {
+          this.playSynthBoom();
+        }
+        setTimeout(() => {
+          if (!played) this.playSynthBoom();
+        }, 120);
+      },
+
+      playSynthBoom() {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          const ctx = new AC();
+          const bufSize = Math.floor(ctx.sampleRate * 0.4);
+          const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = ctx.createBufferSource();
+          noise.buffer = buf;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(800, ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.38);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.4, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          noise.start();
+
+          const osc = ctx.createOscillator();
+          const oscGain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(110, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.38);
+          oscGain.gain.setValueAtTime(0.3, ctx.currentTime);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
+          osc.connect(oscGain);
+          oscGain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.4);
+        } catch (e) {}
       },
 
       async loadCloudSettings() {
@@ -1437,134 +1696,9 @@
         }
       },
 
-      playAudio(type) {
-        try {
-          if (!this.audioCtx) {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (AC) this.audioCtx = new AC();
-          }
-          if (!this.audioCtx) return;
-          if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-          const ctx = this.audioCtx;
-
-          if (type === 'lock') {
-            // 高科技狙击十字准星锁定声 (880Hz -> 1760Hz 蜂鸣)
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.08);
-            gain.gain.setValueAtTime(0.18, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.11);
-          } else if (type === 'boom') {
-            // 轰击爆炸声：低通白噪声 + 次低频冲击三角波
-            const bufSize = Math.floor(ctx.sampleRate * 0.42);
-            const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-            const data = buf.getChannelData(0);
-            for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-            const noise = ctx.createBufferSource();
-            noise.buffer = buf;
-
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(850, ctx.currentTime);
-            filter.frequency.exponentialRampToValueAtTime(65, ctx.currentTime + 0.38);
-
-            const noiseGain = ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.45, ctx.currentTime);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-            noise.connect(filter);
-            filter.connect(noiseGain);
-            noiseGain.connect(ctx.destination);
-            noise.start();
-
-            // 超重低频践踏震撼波
-            const subOsc = ctx.createOscillator();
-            const subGain = ctx.createGain();
-            subOsc.type = 'triangle';
-            subOsc.frequency.setValueAtTime(115, ctx.currentTime);
-            subOsc.frequency.exponentialRampToValueAtTime(32, ctx.currentTime + 0.38);
-            subGain.gain.setValueAtTime(0.35, ctx.currentTime);
-            subGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-            subOsc.connect(subGain);
-            subGain.connect(ctx.destination);
-            subOsc.start();
-            subOsc.stop(ctx.currentTime + 0.4);
-          }
-        } catch (e) {
-          // 降级静音
-        }
-      },
-
-      getTaishohMonsterSVG() {
-        // 《雷欧奥特曼》怪兽大将经典造型: 威风红头巾 + 呆萌霸气绿恐龙 + 强壮利爪 + 标志性大将飞踢姿态
-        return `
-          <svg viewBox="0 0 240 240" class="w-full h-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)]" style="filter: drop-shadow(0 0 12px rgba(249,115,22,0.6));">
-            <defs>
-              <linearGradient id="kg-skin" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#65a30d"/>
-                <stop offset="60%" stop-color="#4d7c0f"/>
-                <stop offset="100%" stop-color="#365314"/>
-              </linearGradient>
-              <linearGradient id="kg-belly" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#fef08a"/>
-                <stop offset="100%" stop-color="#ca8a04"/>
-              </linearGradient>
-              <linearGradient id="kg-band" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#ef4444"/>
-                <stop offset="100%" stop-color="#b91c1c"/>
-              </linearGradient>
-              <radialGradient id="kg-glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.8"/>
-                <stop offset="100%" stop-color="#ea580c" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-            <circle cx="120" cy="120" r="105" fill="url(#kg-glow)"/>
-            <path d="M 60 145 Q 20 160 10 190 Q 30 195 75 165 Z" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
-            <polygon points="50,110 35,95 55,100" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
-            <polygon points="65,90 52,72 72,80" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
-            <polygon points="85,75 75,55 94,66" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
-            <ellipse cx="110" cy="135" rx="55" ry="50" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
-            <path d="M 95 110 Q 135 110 140 145 Q 130 175 95 175 Q 85 145 95 110 Z" fill="url(#kg-belly)" stroke="#854d0e" stroke-width="3"/>
-            <line x1="95" y1="130" x2="135" y2="130" stroke="#854d0e" stroke-width="2"/>
-            <line x1="93" y1="150" x2="130" y2="150" stroke="#854d0e" stroke-width="2"/>
-            <ellipse cx="80" cy="185" rx="20" ry="12" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
-            <g transform="translate(135, 140) rotate(-15)">
-              <rect x="0" y="-12" width="55" height="26" rx="10" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
-              <path d="M 45 -18 L 75 -5 L 75 18 L 45 18 Z" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
-              <polygon points="75,-8 90,-4 75,0" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
-              <polygon points="75,2 92,6 75,10" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
-              <polygon points="75,12 88,16 75,20" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
-            </g>
-            <ellipse cx="130" cy="85" rx="42" ry="36" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
-            <path d="M 88 72 Q 132 58 172 74 Q 170 86 130 76 Q 89 86 88 72 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="3"/>
-            <path d="M 88 74 Q 65 65 50 78 Q 65 85 86 80 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="2"/>
-            <path d="M 86 78 Q 60 88 52 108 Q 70 100 87 84 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="2"/>
-            <ellipse cx="120" cy="78" rx="11" ry="12" fill="#fff" stroke="#1a2e05" stroke-width="3"/>
-            <circle cx="123" cy="78" r="6" fill="#000"/>
-            <circle cx="125" cy="75" r="2.5" fill="#fff"/>
-            <path d="M 108 65 Q 120 60 133 68" stroke="#1a2e05" stroke-width="4" stroke-linecap="round"/>
-            <ellipse cx="150" cy="82" rx="9" ry="10" fill="#fff" stroke="#1a2e05" stroke-width="3"/>
-            <circle cx="152" cy="82" r="5" fill="#000"/>
-            <circle cx="154" cy="80" r="2" fill="#fff"/>
-            <path d="M 142 69 Q 152 66 161 73" stroke="#1a2e05" stroke-width="4" stroke-linecap="round"/>
-            <path d="M 125 96 Q 148 94 165 106 Q 145 120 125 110 Z" fill="#991b1b" stroke="#1a2e05" stroke-width="3"/>
-            <polygon points="132,96 136,102 140,96" fill="#fff"/>
-            <polygon points="144,96 148,103 152,96" fill="#fff"/>
-            <polygon points="156,98 160,105 163,99" fill="#fff"/>
-            <circle cx="95" cy="115" r="12" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
-          </svg>
-        `;
-      },
-
-      destroyRow(idx, onComplete) {
+      startSequence(targetRect, promptText, onConfirmDelete) {
         if (!this.enabled) {
-          if (typeof onComplete === 'function') onComplete();
+          if (typeof onConfirmDelete === 'function') onConfirmDelete();
           return;
         }
         if (this.isDestroying) return;
@@ -1572,10 +1706,177 @@
 
         this.createStage();
         const stage = document.getElementById('monster-deleter-stage');
-        stage.innerHTML = '';
-        stage.classList.remove('hidden');
+        const backdrop = document.getElementById('monster-backdrop');
+        const wrap = document.getElementById('monster-actor-wrap');
+        const bubble = document.getElementById('monster-bubble');
+        const bubbleText = document.getElementById('monster-bubble-text');
+        const choices = document.getElementById('monster-choices');
+        const expWrap = document.getElementById('monster-explosion-wrap');
 
-        // 定位待删除的表格行
+        stage.classList.remove('hidden');
+        backdrop.classList.remove('opacity-0');
+        backdrop.classList.add('opacity-100');
+
+        // 计算目标点与怪兽站位（位于目标行左侧手指正对目标）
+        const targetX = targetRect.left + Math.min(220, targetRect.width / 2);
+        const targetY = targetRect.top + targetRect.height / 2;
+        const endX = Math.max(15, targetX - 145);
+        const endY = Math.max(20, targetY - 130);
+
+        wrap.style.transition = 'none';
+        wrap.style.transform = 'none';
+        wrap.style.left = '-180px';
+        wrap.style.top = `${endY}px`;
+        bubble.classList.remove('opacity-100', 'scale-100');
+        bubble.classList.add('opacity-0', 'scale-90');
+        choices.classList.remove('opacity-100', 'scale-100');
+        choices.classList.add('opacity-0', 'scale-90');
+        expWrap.classList.add('hidden');
+
+        // Phase 1: 走路入场动效 + BGM
+        this.playBgm();
+        this.monsterAnimator.load(this.images.walk || '/monster/walk.png').then(() => {
+          this.monsterAnimator.play(8, true);
+
+          // 触发平滑向右走至目标文件左侧 (耗时约 1.2 秒)
+          requestAnimationFrame(() => {
+            wrap.style.transition = 'left 1.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            wrap.style.left = `${endX}px`;
+          });
+
+          // Phase 2: 停下、指着文件、怪兽说话、弹出「喂，是这个吗？」与选项按钮
+          setTimeout(async () => {
+            this.monsterAnimator.stop();
+            this.playVoice();
+            // 播放指着文件动作 (第 11-14 帧)
+            await this.monsterAnimator.load(this.images.point || '/monster/point.png', [11, 12, 13, 14]);
+            this.monsterAnimator.onFinished = () => {
+              // 弹出经典对话气泡与选项按钮
+              bubbleText.textContent = promptText || '喂，是这个吗？';
+              bubble.classList.remove('opacity-0', 'scale-90');
+              bubble.classList.add('opacity-100', 'scale-100');
+              choices.classList.remove('opacity-0', 'scale-90');
+              choices.classList.add('opacity-100', 'scale-100');
+            };
+            this.monsterAnimator.play(8, false);
+          }, 1250);
+        });
+
+        // 按钮交互监听
+        const btn1 = document.getElementById('monster-btn-yes1');
+        const btn2 = document.getElementById('monster-btn-yes2');
+        const btnCancel = document.getElementById('monster-btn-cancel');
+
+        const doKickAndExplode = async () => {
+          btn1.onclick = null;
+          btn2.onclick = null;
+          btnCancel.onclick = null;
+          backdrop.onclick = null;
+
+          // 隐藏气泡与按钮
+          bubble.classList.remove('opacity-100', 'scale-100');
+          bubble.classList.add('opacity-0', 'scale-90');
+          choices.classList.remove('opacity-100', 'scale-100');
+          choices.classList.add('opacity-0', 'scale-90');
+
+          // Phase 3: 踹文件动效 (第5帧命中触发爆炸)
+          await this.monsterAnimator.load(this.images.kick || '/monster/kick.png');
+          this.monsterAnimator.onFrame = (frameIdx) => {
+            if (frameIdx === 5) {
+              // 命中瞬间：播放爆炸声音 + 屏幕震击 + 爆炸粒子 + 数据实际删除
+              this.playBoom();
+              document.body.classList.add('monster-screen-shake');
+
+              // 爆炸动画展示在目标文件位置
+              expWrap.style.left = `${targetX}px`;
+              expWrap.style.top = `${targetY}px`;
+              expWrap.classList.remove('hidden');
+              this.explosionAnimator.load(this.images.explosion || '/monster/explosion.png').then(() => {
+                this.explosionAnimator.onFinished = () => expWrap.classList.add('hidden');
+                this.explosionAnimator.play(14, false);
+              });
+
+              if (typeof onConfirmDelete === 'function') onConfirmDelete();
+            }
+          };
+
+          this.monsterAnimator.onFinished = async () => {
+            document.body.classList.remove('monster-screen-shake');
+
+            // Phase 4: 雷欧奥特曼登场！
+            await this.monsterAnimator.load(this.images.leo || '/monster/leo.png');
+            bubbleText.textContent = '⚡️ 雷欧奥特曼登场！';
+            bubble.classList.remove('opacity-0', 'scale-90');
+            bubble.classList.add('opacity-100', 'scale-100');
+
+            this.monsterAnimator.onFinished = async () => {
+              // Phase 5: 大将怪兽出场飞行动效，飞天逃离！
+              bubbleText.textContent = '溜了溜了~ 💨';
+              await this.monsterAnimator.load(this.images.fly || '/monster/fly.png');
+              this.monsterAnimator.play(8, true);
+
+              wrap.style.transition = 'transform 1.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.15s ease-in';
+              wrap.style.transform = `translate(${window.innerWidth + 200}px, -180px) scale(0.65)`;
+
+              setTimeout(() => {
+                this.stopBgm();
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => {
+                  stage.classList.add('hidden');
+                  wrap.style.transition = 'none';
+                  wrap.style.transform = 'none';
+                  this.isDestroying = false;
+                }, 300);
+              }, 1150);
+            };
+
+            this.monsterAnimator.play(8, false);
+          };
+
+          this.monsterAnimator.play(8, false);
+        };
+
+        const cancelSequence = async () => {
+          btn1.onclick = null;
+          btn2.onclick = null;
+          btnCancel.onclick = null;
+          backdrop.onclick = null;
+
+          bubbleText.textContent = '好吧，那不踩了喵~ 🐾';
+          choices.classList.remove('opacity-100', 'scale-100');
+          choices.classList.add('opacity-0', 'scale-90');
+
+          await this.monsterAnimator.load(this.images.fly || '/monster/fly.png');
+          this.monsterAnimator.play(8, true);
+
+          wrap.style.transition = 'transform 0.9s cubic-bezier(0.4, 0, 0.2, 1)';
+          wrap.style.transform = `translate(${window.innerWidth + 100}px, -150px) scale(0.65)`;
+
+          setTimeout(() => {
+            this.stopBgm();
+            backdrop.classList.remove('opacity-100');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => {
+              stage.classList.add('hidden');
+              wrap.style.transition = 'none';
+              wrap.style.transform = 'none';
+              this.isDestroying = false;
+            }, 300);
+          }, 900);
+        };
+
+        btn1.onclick = doKickAndExplode;
+        btn2.onclick = doKickAndExplode;
+        btnCancel.onclick = cancelSequence;
+        backdrop.onclick = cancelSequence;
+      },
+
+      destroyRow(idx, onComplete) {
+        if (!this.enabled) {
+          if (typeof onComplete === 'function') onComplete();
+          return;
+        }
         const rows = document.querySelectorAll('#table-body tr');
         const targetRow = rows[idx];
         let rect = { left: window.innerWidth / 2 - 200, top: window.innerHeight / 2 - 25, width: 400, height: 50 };
@@ -1584,83 +1885,10 @@
           if (r.width > 0 && r.height > 0) rect = r;
         }
 
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-
-        // 1. 红色十字狙击准星锁定
-        this.playAudio('lock');
-        const reticle = document.createElement('div');
-        reticle.className = 'absolute monster-reticle-pulse pointer-events-none transition-all duration-200';
-        reticle.style.left = `${rect.left - 8}px`;
-        reticle.style.top = `${rect.top - 6}px`;
-        reticle.style.width = `${rect.width + 16}px`;
-        reticle.style.height = `${rect.height + 12}px`;
-        reticle.innerHTML = `
-          <div class="w-full h-full border-2 border-red-500 rounded bg-red-500/15 relative flex items-center justify-between px-3">
-            <span class="text-[11px] font-mono font-extrabold text-red-600 bg-white/90 px-2 py-0.5 rounded shadow">🎯 [ TARGET LOCKED · 机型 #${idx + 1} ]</span>
-            <span class="text-[10px] font-bold text-red-500 uppercase tracking-widest animate-ping">CRUSH</span>
-            <div class="absolute -top-1.5 -left-1.5 w-3 h-3 border-t-2 border-l-2 border-red-600"></div>
-            <div class="absolute -top-1.5 -right-1.5 w-3 h-3 border-t-2 border-r-2 border-red-600"></div>
-            <div class="absolute -bottom-1.5 -left-1.5 w-3 h-3 border-b-2 border-l-2 border-red-600"></div>
-            <div class="absolute -bottom-1.5 -right-1.5 w-3 h-3 border-b-2 border-r-2 border-red-600"></div>
-          </div>
-        `;
-        stage.appendChild(reticle);
-
-        // 2. 召唤大将怪兽登场（从屏幕右上方带速度线呼啸踢入）
-        const monsterWrap = document.createElement('div');
-        monsterWrap.className = 'absolute w-44 h-44 pointer-events-none transition-transform';
-        monsterWrap.style.left = `${cx - 88}px`;
-        monsterWrap.style.top = `${cy - 92}px`;
-        monsterWrap.style.transform = `translate(${Math.min(320, window.innerWidth - cx)}px, -360px) scale(0.65) rotate(25deg)`;
-        monsterWrap.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1)';
-
-        monsterWrap.innerHTML = `
-          <div class="relative w-full h-full">
-            <div class="absolute -top-12 -left-14 bg-yellow-300 border-2 border-black text-black px-3 py-1 rounded-full text-xs font-black shadow-lg whitespace-nowrap animate-bounce">
-              怪兽大将参上！🔥 给我碎！
-            </div>
-            ${this.getTaishohMonsterSVG()}
-          </div>
-        `;
-        stage.appendChild(monsterWrap);
-
-        requestAnimationFrame(() => {
-          monsterWrap.style.transform = `translate(0, 0) scale(1.15) rotate(-8deg)`;
-        });
-
-        // 3. 飞踢命中瞬间 (0.38s): 爆炸 + 屏幕震颤 + 轰鸣音效 + 表格行崩解
-        setTimeout(() => {
-          this.playAudio('boom');
-          document.body.classList.add('monster-screen-shake');
-
+        this.startSequence(rect, '喂，是这个吗？', () => {
           if (targetRow) targetRow.classList.add('monster-row-destroying');
-
-          const boomText = document.createElement('div');
-          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
-          boomText.style.left = `${cx}px`;
-          boomText.style.top = `${cy}px`;
-          boomText.innerHTML = `
-            <div class="inline-block text-3xl font-black text-amber-300 drop-shadow-[0_4px_10px_rgba(239,68,68,0.95)] px-4 py-2 bg-red-600 border-4 border-yellow-300 rounded-2xl transform -rotate-6">
-              💥 踩碎！BOOM!
-            </div>
-          `;
-          stage.appendChild(boomText);
-
-          monsterWrap.style.transition = 'transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-          monsterWrap.style.transform = `translate(-30px, -45px) scale(1.0) rotate(5deg)`;
-          const bubble = monsterWrap.querySelector('.whitespace-nowrap');
-          if (bubble) bubble.textContent = '搞定！化作宇宙尘埃啦✌️';
-        }, 380);
-
-        // 4. 收尾清理与回调执行 (0.85s)
-        setTimeout(() => {
-          document.body.classList.remove('monster-screen-shake');
-          stage.classList.add('hidden');
-          stage.innerHTML = '';
-          this.isDestroying = false;
           if (typeof onComplete === 'function') onComplete();
-        }, 850);
+        });
       },
 
       destroySelected(indices, onComplete) {
@@ -1668,85 +1896,22 @@
           if (typeof onComplete === 'function') onComplete();
           return;
         }
-        if (this.isDestroying) return;
-        this.isDestroying = true;
-
-        this.createStage();
-        const stage = document.getElementById('monster-deleter-stage');
-        stage.innerHTML = '';
-        stage.classList.remove('hidden');
-
-        this.playAudio('lock');
         const rows = document.querySelectorAll('#table-body tr');
         const targetElements = [];
         indices.forEach(idx => {
           if (rows[idx]) targetElements.push(rows[idx]);
         });
+        const firstRow = targetElements[0];
+        let rect = { left: window.innerWidth / 2 - 200, top: window.innerHeight / 2 - 25, width: 400, height: 50 };
+        if (firstRow) {
+          const r = firstRow.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rect = r;
+        }
 
-        targetElements.forEach((row, i) => {
-          const r = row.getBoundingClientRect();
-          const reticle = document.createElement('div');
-          reticle.className = 'absolute monster-reticle-pulse pointer-events-none';
-          reticle.style.left = `${r.left - 4}px`;
-          reticle.style.top = `${r.top - 2}px`;
-          reticle.style.width = `${r.width + 8}px`;
-          reticle.style.height = `${r.height + 4}px`;
-          reticle.innerHTML = `
-            <div class="w-full h-full border-2 border-red-500 rounded bg-red-500/10 flex items-center justify-end px-3">
-              <span class="text-[10px] font-mono font-bold text-red-600 bg-white/90 px-1.5 py-0.5 rounded shadow">🎯 BATCH TARGET #${i + 1}</span>
-            </div>
-          `;
-          stage.appendChild(reticle);
-        });
-
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight / 2;
-
-        const monsterWrap = document.createElement('div');
-        monsterWrap.className = 'absolute w-56 h-56 pointer-events-none transition-transform';
-        monsterWrap.style.left = `${cx - 112}px`;
-        monsterWrap.style.top = `${cy - 120}px`;
-        monsterWrap.style.transform = `translate(0, -420px) scale(0.6) rotate(30deg)`;
-        monsterWrap.style.transition = 'transform 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.1)';
-
-        monsterWrap.innerHTML = `
-          <div class="relative w-full h-full">
-            <div class="absolute -top-12 -left-10 bg-orange-400 border-2 border-black text-black px-3.5 py-1.5 rounded-full text-xs font-black shadow-lg whitespace-nowrap animate-bounce">
-              怪兽大将大连击！全部踩扁！🔥
-            </div>
-            ${this.getTaishohMonsterSVG()}
-          </div>
-        `;
-        stage.appendChild(monsterWrap);
-
-        requestAnimationFrame(() => {
-          monsterWrap.style.transform = `translate(0, 0) scale(1.35) rotate(-5deg)`;
-        });
-
-        setTimeout(() => {
-          this.playAudio('boom');
-          document.body.classList.add('monster-screen-shake');
-          targetElements.forEach(row => row.classList.add('monster-row-destroying'));
-
-          const boomText = document.createElement('div');
-          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
-          boomText.style.left = `${cx}px`;
-          boomText.style.top = `${cy}px`;
-          boomText.innerHTML = `
-            <div class="inline-block text-4xl font-black text-yellow-300 drop-shadow-[0_4px_14px_rgba(239,68,68,1)] px-6 py-2.5 bg-red-600 border-4 border-yellow-300 rounded-3xl">
-              💥 巨兽大践踏！全灭！
-            </div>
-          `;
-          stage.appendChild(boomText);
-        }, 420);
-
-        setTimeout(() => {
-          document.body.classList.remove('monster-screen-shake');
-          stage.classList.add('hidden');
-          stage.innerHTML = '';
-          this.isDestroying = false;
+        this.startSequence(rect, `喂，是这 ${indices.length} 条吗？`, () => {
+          targetElements.forEach(r => r.classList.add('monster-row-destroying'));
           if (typeof onComplete === 'function') onComplete();
-        }, 980);
+        });
       },
 
       destroyAll(onComplete) {
@@ -1754,64 +1919,15 @@
           if (typeof onComplete === 'function') onComplete();
           return;
         }
-        if (this.isDestroying) return;
-        this.isDestroying = true;
+        const table = document.querySelector('table') || document.body;
+        const r = table.getBoundingClientRect();
+        const rect = { left: r.left, top: r.top + 60, width: r.width, height: 60 };
 
-        this.createStage();
-        const stage = document.getElementById('monster-deleter-stage');
-        stage.innerHTML = '';
-        stage.classList.remove('hidden');
-
-        this.playAudio('lock');
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight / 2;
-
-        const monsterWrap = document.createElement('div');
-        monsterWrap.className = 'absolute w-64 h-64 pointer-events-none transition-transform';
-        monsterWrap.style.left = `${cx - 128}px`;
-        monsterWrap.style.top = `${cy - 140}px`;
-        monsterWrap.style.transform = `translate(0, -480px) scale(0.5) rotate(45deg)`;
-        monsterWrap.style.transition = 'transform 0.46s cubic-bezier(0.18, 0.89, 0.32, 1.25)';
-
-        monsterWrap.innerHTML = `
-          <div class="relative w-full h-full">
-            <div class="absolute -top-14 -left-12 bg-red-500 text-white border-2 border-black px-4 py-1.5 rounded-full text-xs font-black shadow-xl whitespace-nowrap animate-pulse">
-              终极必杀！大将全面大清空！🔥
-            </div>
-            ${this.getTaishohMonsterSVG()}
-          </div>
-        `;
-        stage.appendChild(monsterWrap);
-
-        requestAnimationFrame(() => {
-          monsterWrap.style.transform = `translate(0, 0) scale(1.5) rotate(-10deg)`;
-        });
-
-        setTimeout(() => {
-          this.playAudio('boom');
-          document.body.classList.add('monster-screen-shake');
+        this.startSequence(rect, '喂，确定全部清空吗？', () => {
           const rows = document.querySelectorAll('#table-body tr');
           rows.forEach(r => r.classList.add('monster-row-destroying'));
-
-          const boomText = document.createElement('div');
-          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
-          boomText.style.left = `${cx}px`;
-          boomText.style.top = `${cy}px`;
-          boomText.innerHTML = `
-            <div class="inline-block text-5xl font-black text-yellow-300 drop-shadow-[0_6px_20px_rgba(239,68,68,1)] px-8 py-3 bg-red-600 border-4 border-yellow-300 rounded-3xl">
-              💥 终极全面消灭！
-            </div>
-          `;
-          stage.appendChild(boomText);
-        }, 460);
-
-        setTimeout(() => {
-          document.body.classList.remove('monster-screen-shake');
-          stage.classList.add('hidden');
-          stage.innerHTML = '';
-          this.isDestroying = false;
           if (typeof onComplete === 'function') onComplete();
-        }, 1050);
+        });
       }
     };
 
