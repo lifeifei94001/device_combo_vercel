@@ -122,6 +122,45 @@
     .pet-bob { animation: petBob 2.6s ease-in-out infinite; }
     .pet-hungry-shake { animation: petHungryShake 1.4s ease-in-out infinite; }
     .pet-float-feedback { animation: petFloatUp 1.1s ease-out forwards; }
+
+    /* 大将怪兽摧毁动效 (MonsterDeleter) */
+    @keyframes monsterShake {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      15% { transform: translate(-8px, 6px) rotate(-1.4deg); }
+      30% { transform: translate(8px, -6px) rotate(1.4deg); }
+      45% { transform: translate(-6px, -4px) rotate(-0.9deg); }
+      60% { transform: translate(6px, 4px) rotate(0.9deg); }
+      75% { transform: translate(-3px, 2px) rotate(0deg); }
+    }
+    .monster-screen-shake {
+      animation: monsterShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    @keyframes monsterReticlePulse {
+      0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.8)); }
+      50% { transform: scale(1.08); opacity: 0.85; filter: drop-shadow(0 0 16px rgba(220, 38, 38, 1)); }
+    }
+    .monster-reticle-pulse {
+      animation: monsterReticlePulse 0.38s ease-in-out infinite;
+    }
+    @keyframes monsterRowBurn {
+      0% { background-color: rgba(239, 68, 68, 0.35); transform: scale(1); }
+      30% { background-color: rgba(249, 115, 22, 0.85); transform: scale(1.02) skewX(2deg); filter: brightness(1.6); }
+      65% { background-color: rgba(185, 28, 28, 0.95); transform: scale(0.94) skewX(-2deg); opacity: 0.75; }
+      100% { transform: scale(0.6) translateY(-14px); opacity: 0; max-height: 0; }
+    }
+    .monster-row-destroying {
+      animation: monsterRowBurn 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+      pointer-events: none;
+    }
+    @keyframes monsterComicBoom {
+      0% { transform: translate(-50%, -50%) scale(0.2) rotate(-15deg); opacity: 0; }
+      35% { transform: translate(-50%, -50%) scale(1.35) rotate(6deg); opacity: 1; }
+      70% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(0.9) rotate(0deg); opacity: 0; }
+    }
+    .monster-comic-boom {
+      animation: monsterComicBoom 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
   </style>
 </head>
 <body class="flex h-screen overflow-hidden transition-colors duration-200">
@@ -647,6 +686,13 @@
               <span id="table-title-count" class="font-bold text-gray-800 text-sm">待处理机型列表 (0 条记录)</span>
             </div>
             <div class="flex items-center space-x-2">
+              <button id="btn-toggle-monster-deleter" onclick="MonsterDeleter.toggleCloudMode()"
+                title="开启后，删除机型时召唤《雷欧奥特曼》怪兽大将一脚踩爆数据！开关状态多浏览器云端实时同步"
+                class="px-2.5 py-1.5 text-xs rounded-md border font-medium flex items-center space-x-1.5 transition shadow-sm bg-gradient-to-r from-amber-50 to-orange-50 border-orange-300 text-orange-800 hover:brightness-95">
+                <span class="text-sm">🦖</span>
+                <span class="font-bold">大将怪兽摧毁</span>
+                <span id="badge-monster-status" class="px-1.5 py-0.5 text-[10px] rounded-full bg-orange-500 text-white font-mono font-bold shadow-sm">ON</span>
+              </button>
               <button onclick="deleteSelectedRows()" class="px-2.5 py-1.5 text-xs text-red-600 bg-red-50/50 border border-red-200 rounded-md hover:bg-red-50 transition flex items-center font-medium">
                 <i class="fa-solid fa-trash mr-1"></i>删除选中
               </button>
@@ -1322,42 +1368,516 @@
       }
     }
 
+    // ==========================================
+    // 大将怪兽摧毁删除系统 (MonsterDeleter)
+    // 原型参考: GitHub 531149627/MonsterDeleter (《雷欧奥特曼》淘气怪兽大将)
+    // 特性: 红色瞄准准星锁定 + 经典红头巾怪兽飞踢/践踏 + Web Audio 复古爆炸音效 + 屏幕震击 + 多浏览器云端同步
+    // ==========================================
+    const MonsterDeleter = {
+      enabled: true,
+      isDestroying: false,
+      audioCtx: null,
+
+      async init() {
+        this.createStage();
+        await this.loadCloudSettings();
+      },
+
+      createStage() {
+        if (document.getElementById('monster-deleter-stage')) return;
+        const stage = document.createElement('div');
+        stage.id = 'monster-deleter-stage';
+        stage.className = 'fixed inset-0 pointer-events-none z-[9999] overflow-hidden hidden';
+        document.body.appendChild(stage);
+      },
+
+      async loadCloudSettings() {
+        try {
+          const res = await fetch('/api/settings');
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.settings && typeof data.settings.monster_deleter !== 'undefined') {
+              this.enabled = Boolean(data.settings.monster_deleter);
+            }
+          }
+        } catch (e) {
+          console.warn('获取怪兽摧毁云端偏好设置异常，采用默认开启', e);
+        }
+        this.updateToggleUI();
+      },
+
+      async toggleCloudMode() {
+        this.enabled = !this.enabled;
+        this.updateToggleUI();
+        const stateLabel = this.enabled ? '开启' : '关闭';
+        FunSuite.showToast(`👾 大将怪兽摧毁模式已${stateLabel}（已同步至云端数据库）`, 'info');
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monster_deleter: this.enabled })
+          });
+        } catch (e) {
+          console.error('同步怪兽摧毁设置到云端失败', e);
+        }
+      },
+
+      updateToggleUI() {
+        const badge = document.getElementById('badge-monster-status');
+        const btn = document.getElementById('btn-toggle-monster-deleter');
+        if (!badge || !btn) return;
+        if (this.enabled) {
+          badge.textContent = 'ON';
+          badge.className = 'px-1.5 py-0.5 text-[10px] rounded-full bg-orange-500 text-white font-mono font-bold shadow-sm';
+          btn.className = 'px-2.5 py-1.5 text-xs rounded-md border font-medium flex items-center space-x-1.5 transition shadow-sm bg-gradient-to-r from-amber-50 to-orange-50 border-orange-300 text-orange-800 hover:brightness-95';
+        } else {
+          badge.textContent = 'OFF';
+          badge.className = 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-400 text-white font-mono font-bold';
+          btn.className = 'px-2.5 py-1.5 text-xs rounded-md border font-medium flex items-center space-x-1.5 transition bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100';
+        }
+      },
+
+      playAudio(type) {
+        try {
+          if (!this.audioCtx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) this.audioCtx = new AC();
+          }
+          if (!this.audioCtx) return;
+          if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+          const ctx = this.audioCtx;
+
+          if (type === 'lock') {
+            // 高科技狙击十字准星锁定声 (880Hz -> 1760Hz 蜂鸣)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.18, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.11);
+          } else if (type === 'boom') {
+            // 轰击爆炸声：低通白噪声 + 次低频冲击三角波
+            const bufSize = Math.floor(ctx.sampleRate * 0.42);
+            const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource();
+            noise.buffer = buf;
+
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(850, ctx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(65, ctx.currentTime + 0.38);
+
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.45, ctx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start();
+
+            // 超重低频践踏震撼波
+            const subOsc = ctx.createOscillator();
+            const subGain = ctx.createGain();
+            subOsc.type = 'triangle';
+            subOsc.frequency.setValueAtTime(115, ctx.currentTime);
+            subOsc.frequency.exponentialRampToValueAtTime(32, ctx.currentTime + 0.38);
+            subGain.gain.setValueAtTime(0.35, ctx.currentTime);
+            subGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+            subOsc.connect(subGain);
+            subGain.connect(ctx.destination);
+            subOsc.start();
+            subOsc.stop(ctx.currentTime + 0.4);
+          }
+        } catch (e) {
+          // 降级静音
+        }
+      },
+
+      getTaishohMonsterSVG() {
+        // 《雷欧奥特曼》怪兽大将经典造型: 威风红头巾 + 呆萌霸气绿恐龙 + 强壮利爪 + 标志性大将飞踢姿态
+        return `
+          <svg viewBox="0 0 240 240" class="w-full h-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.45)]" style="filter: drop-shadow(0 0 12px rgba(249,115,22,0.6));">
+            <defs>
+              <linearGradient id="kg-skin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#65a30d"/>
+                <stop offset="60%" stop-color="#4d7c0f"/>
+                <stop offset="100%" stop-color="#365314"/>
+              </linearGradient>
+              <linearGradient id="kg-belly" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fef08a"/>
+                <stop offset="100%" stop-color="#ca8a04"/>
+              </linearGradient>
+              <linearGradient id="kg-band" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#ef4444"/>
+                <stop offset="100%" stop-color="#b91c1c"/>
+              </linearGradient>
+              <radialGradient id="kg-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="#ea580c" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <circle cx="120" cy="120" r="105" fill="url(#kg-glow)"/>
+            <path d="M 60 145 Q 20 160 10 190 Q 30 195 75 165 Z" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
+            <polygon points="50,110 35,95 55,100" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
+            <polygon points="65,90 52,72 72,80" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
+            <polygon points="85,75 75,55 94,66" fill="#f59e0b" stroke="#78350f" stroke-width="2"/>
+            <ellipse cx="110" cy="135" rx="55" ry="50" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
+            <path d="M 95 110 Q 135 110 140 145 Q 130 175 95 175 Q 85 145 95 110 Z" fill="url(#kg-belly)" stroke="#854d0e" stroke-width="3"/>
+            <line x1="95" y1="130" x2="135" y2="130" stroke="#854d0e" stroke-width="2"/>
+            <line x1="93" y1="150" x2="130" y2="150" stroke="#854d0e" stroke-width="2"/>
+            <ellipse cx="80" cy="185" rx="20" ry="12" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
+            <g transform="translate(135, 140) rotate(-15)">
+              <rect x="0" y="-12" width="55" height="26" rx="10" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
+              <path d="M 45 -18 L 75 -5 L 75 18 L 45 18 Z" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
+              <polygon points="75,-8 90,-4 75,0" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
+              <polygon points="75,2 92,6 75,10" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
+              <polygon points="75,12 88,16 75,20" fill="#fff" stroke="#1a2e05" stroke-width="2"/>
+            </g>
+            <ellipse cx="130" cy="85" rx="42" ry="36" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="4"/>
+            <path d="M 88 72 Q 132 58 172 74 Q 170 86 130 76 Q 89 86 88 72 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="3"/>
+            <path d="M 88 74 Q 65 65 50 78 Q 65 85 86 80 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="2"/>
+            <path d="M 86 78 Q 60 88 52 108 Q 70 100 87 84 Z" fill="url(#kg-band)" stroke="#7f1d1d" stroke-width="2"/>
+            <ellipse cx="120" cy="78" rx="11" ry="12" fill="#fff" stroke="#1a2e05" stroke-width="3"/>
+            <circle cx="123" cy="78" r="6" fill="#000"/>
+            <circle cx="125" cy="75" r="2.5" fill="#fff"/>
+            <path d="M 108 65 Q 120 60 133 68" stroke="#1a2e05" stroke-width="4" stroke-linecap="round"/>
+            <ellipse cx="150" cy="82" rx="9" ry="10" fill="#fff" stroke="#1a2e05" stroke-width="3"/>
+            <circle cx="152" cy="82" r="5" fill="#000"/>
+            <circle cx="154" cy="80" r="2" fill="#fff"/>
+            <path d="M 142 69 Q 152 66 161 73" stroke="#1a2e05" stroke-width="4" stroke-linecap="round"/>
+            <path d="M 125 96 Q 148 94 165 106 Q 145 120 125 110 Z" fill="#991b1b" stroke="#1a2e05" stroke-width="3"/>
+            <polygon points="132,96 136,102 140,96" fill="#fff"/>
+            <polygon points="144,96 148,103 152,96" fill="#fff"/>
+            <polygon points="156,98 160,105 163,99" fill="#fff"/>
+            <circle cx="95" cy="115" r="12" fill="url(#kg-skin)" stroke="#1a2e05" stroke-width="3"/>
+          </svg>
+        `;
+      },
+
+      destroyRow(idx, onComplete) {
+        if (!this.enabled) {
+          if (typeof onComplete === 'function') onComplete();
+          return;
+        }
+        if (this.isDestroying) return;
+        this.isDestroying = true;
+
+        this.createStage();
+        const stage = document.getElementById('monster-deleter-stage');
+        stage.innerHTML = '';
+        stage.classList.remove('hidden');
+
+        // 定位待删除的表格行
+        const rows = document.querySelectorAll('#table-body tr');
+        const targetRow = rows[idx];
+        let rect = { left: window.innerWidth / 2 - 200, top: window.innerHeight / 2 - 25, width: 400, height: 50 };
+        if (targetRow) {
+          const r = targetRow.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rect = r;
+        }
+
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+
+        // 1. 红色十字狙击准星锁定
+        this.playAudio('lock');
+        const reticle = document.createElement('div');
+        reticle.className = 'absolute monster-reticle-pulse pointer-events-none transition-all duration-200';
+        reticle.style.left = `${rect.left - 8}px`;
+        reticle.style.top = `${rect.top - 6}px`;
+        reticle.style.width = `${rect.width + 16}px`;
+        reticle.style.height = `${rect.height + 12}px`;
+        reticle.innerHTML = `
+          <div class="w-full h-full border-2 border-red-500 rounded bg-red-500/15 relative flex items-center justify-between px-3">
+            <span class="text-[11px] font-mono font-extrabold text-red-600 bg-white/90 px-2 py-0.5 rounded shadow">🎯 [ TARGET LOCKED · 机型 #${idx + 1} ]</span>
+            <span class="text-[10px] font-bold text-red-500 uppercase tracking-widest animate-ping">CRUSH</span>
+            <div class="absolute -top-1.5 -left-1.5 w-3 h-3 border-t-2 border-l-2 border-red-600"></div>
+            <div class="absolute -top-1.5 -right-1.5 w-3 h-3 border-t-2 border-r-2 border-red-600"></div>
+            <div class="absolute -bottom-1.5 -left-1.5 w-3 h-3 border-b-2 border-l-2 border-red-600"></div>
+            <div class="absolute -bottom-1.5 -right-1.5 w-3 h-3 border-b-2 border-r-2 border-red-600"></div>
+          </div>
+        `;
+        stage.appendChild(reticle);
+
+        // 2. 召唤大将怪兽登场（从屏幕右上方带速度线呼啸踢入）
+        const monsterWrap = document.createElement('div');
+        monsterWrap.className = 'absolute w-44 h-44 pointer-events-none transition-transform';
+        monsterWrap.style.left = `${cx - 88}px`;
+        monsterWrap.style.top = `${cy - 92}px`;
+        monsterWrap.style.transform = `translate(${Math.min(320, window.innerWidth - cx)}px, -360px) scale(0.65) rotate(25deg)`;
+        monsterWrap.style.transition = 'transform 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1)';
+
+        monsterWrap.innerHTML = `
+          <div class="relative w-full h-full">
+            <div class="absolute -top-12 -left-14 bg-yellow-300 border-2 border-black text-black px-3 py-1 rounded-full text-xs font-black shadow-lg whitespace-nowrap animate-bounce">
+              怪兽大将参上！🔥 给我碎！
+            </div>
+            ${this.getTaishohMonsterSVG()}
+          </div>
+        `;
+        stage.appendChild(monsterWrap);
+
+        requestAnimationFrame(() => {
+          monsterWrap.style.transform = `translate(0, 0) scale(1.15) rotate(-8deg)`;
+        });
+
+        // 3. 飞踢命中瞬间 (0.38s): 爆炸 + 屏幕震颤 + 轰鸣音效 + 表格行崩解
+        setTimeout(() => {
+          this.playAudio('boom');
+          document.body.classList.add('monster-screen-shake');
+
+          if (targetRow) targetRow.classList.add('monster-row-destroying');
+
+          const boomText = document.createElement('div');
+          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
+          boomText.style.left = `${cx}px`;
+          boomText.style.top = `${cy}px`;
+          boomText.innerHTML = `
+            <div class="inline-block text-3xl font-black text-amber-300 drop-shadow-[0_4px_10px_rgba(239,68,68,0.95)] px-4 py-2 bg-red-600 border-4 border-yellow-300 rounded-2xl transform -rotate-6">
+              💥 踩碎！BOOM!
+            </div>
+          `;
+          stage.appendChild(boomText);
+
+          monsterWrap.style.transition = 'transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          monsterWrap.style.transform = `translate(-30px, -45px) scale(1.0) rotate(5deg)`;
+          const bubble = monsterWrap.querySelector('.whitespace-nowrap');
+          if (bubble) bubble.textContent = '搞定！化作宇宙尘埃啦✌️';
+        }, 380);
+
+        // 4. 收尾清理与回调执行 (0.85s)
+        setTimeout(() => {
+          document.body.classList.remove('monster-screen-shake');
+          stage.classList.add('hidden');
+          stage.innerHTML = '';
+          this.isDestroying = false;
+          if (typeof onComplete === 'function') onComplete();
+        }, 850);
+      },
+
+      destroySelected(indices, onComplete) {
+        if (!this.enabled || !indices.length) {
+          if (typeof onComplete === 'function') onComplete();
+          return;
+        }
+        if (this.isDestroying) return;
+        this.isDestroying = true;
+
+        this.createStage();
+        const stage = document.getElementById('monster-deleter-stage');
+        stage.innerHTML = '';
+        stage.classList.remove('hidden');
+
+        this.playAudio('lock');
+        const rows = document.querySelectorAll('#table-body tr');
+        const targetElements = [];
+        indices.forEach(idx => {
+          if (rows[idx]) targetElements.push(rows[idx]);
+        });
+
+        targetElements.forEach((row, i) => {
+          const r = row.getBoundingClientRect();
+          const reticle = document.createElement('div');
+          reticle.className = 'absolute monster-reticle-pulse pointer-events-none';
+          reticle.style.left = `${r.left - 4}px`;
+          reticle.style.top = `${r.top - 2}px`;
+          reticle.style.width = `${r.width + 8}px`;
+          reticle.style.height = `${r.height + 4}px`;
+          reticle.innerHTML = `
+            <div class="w-full h-full border-2 border-red-500 rounded bg-red-500/10 flex items-center justify-end px-3">
+              <span class="text-[10px] font-mono font-bold text-red-600 bg-white/90 px-1.5 py-0.5 rounded shadow">🎯 BATCH TARGET #${i + 1}</span>
+            </div>
+          `;
+          stage.appendChild(reticle);
+        });
+
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+
+        const monsterWrap = document.createElement('div');
+        monsterWrap.className = 'absolute w-56 h-56 pointer-events-none transition-transform';
+        monsterWrap.style.left = `${cx - 112}px`;
+        monsterWrap.style.top = `${cy - 120}px`;
+        monsterWrap.style.transform = `translate(0, -420px) scale(0.6) rotate(30deg)`;
+        monsterWrap.style.transition = 'transform 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.1)';
+
+        monsterWrap.innerHTML = `
+          <div class="relative w-full h-full">
+            <div class="absolute -top-12 -left-10 bg-orange-400 border-2 border-black text-black px-3.5 py-1.5 rounded-full text-xs font-black shadow-lg whitespace-nowrap animate-bounce">
+              怪兽大将大连击！全部踩扁！🔥
+            </div>
+            ${this.getTaishohMonsterSVG()}
+          </div>
+        `;
+        stage.appendChild(monsterWrap);
+
+        requestAnimationFrame(() => {
+          monsterWrap.style.transform = `translate(0, 0) scale(1.35) rotate(-5deg)`;
+        });
+
+        setTimeout(() => {
+          this.playAudio('boom');
+          document.body.classList.add('monster-screen-shake');
+          targetElements.forEach(row => row.classList.add('monster-row-destroying'));
+
+          const boomText = document.createElement('div');
+          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
+          boomText.style.left = `${cx}px`;
+          boomText.style.top = `${cy}px`;
+          boomText.innerHTML = `
+            <div class="inline-block text-4xl font-black text-yellow-300 drop-shadow-[0_4px_14px_rgba(239,68,68,1)] px-6 py-2.5 bg-red-600 border-4 border-yellow-300 rounded-3xl">
+              💥 巨兽大践踏！全灭！
+            </div>
+          `;
+          stage.appendChild(boomText);
+        }, 420);
+
+        setTimeout(() => {
+          document.body.classList.remove('monster-screen-shake');
+          stage.classList.add('hidden');
+          stage.innerHTML = '';
+          this.isDestroying = false;
+          if (typeof onComplete === 'function') onComplete();
+        }, 980);
+      },
+
+      destroyAll(onComplete) {
+        if (!this.enabled) {
+          if (typeof onComplete === 'function') onComplete();
+          return;
+        }
+        if (this.isDestroying) return;
+        this.isDestroying = true;
+
+        this.createStage();
+        const stage = document.getElementById('monster-deleter-stage');
+        stage.innerHTML = '';
+        stage.classList.remove('hidden');
+
+        this.playAudio('lock');
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+
+        const monsterWrap = document.createElement('div');
+        monsterWrap.className = 'absolute w-64 h-64 pointer-events-none transition-transform';
+        monsterWrap.style.left = `${cx - 128}px`;
+        monsterWrap.style.top = `${cy - 140}px`;
+        monsterWrap.style.transform = `translate(0, -480px) scale(0.5) rotate(45deg)`;
+        monsterWrap.style.transition = 'transform 0.46s cubic-bezier(0.18, 0.89, 0.32, 1.25)';
+
+        monsterWrap.innerHTML = `
+          <div class="relative w-full h-full">
+            <div class="absolute -top-14 -left-12 bg-red-500 text-white border-2 border-black px-4 py-1.5 rounded-full text-xs font-black shadow-xl whitespace-nowrap animate-pulse">
+              终极必杀！大将全面大清空！🔥
+            </div>
+            ${this.getTaishohMonsterSVG()}
+          </div>
+        `;
+        stage.appendChild(monsterWrap);
+
+        requestAnimationFrame(() => {
+          monsterWrap.style.transform = `translate(0, 0) scale(1.5) rotate(-10deg)`;
+        });
+
+        setTimeout(() => {
+          this.playAudio('boom');
+          document.body.classList.add('monster-screen-shake');
+          const rows = document.querySelectorAll('#table-body tr');
+          rows.forEach(r => r.classList.add('monster-row-destroying'));
+
+          const boomText = document.createElement('div');
+          boomText.className = 'absolute monster-comic-boom pointer-events-none text-center select-none';
+          boomText.style.left = `${cx}px`;
+          boomText.style.top = `${cy}px`;
+          boomText.innerHTML = `
+            <div class="inline-block text-5xl font-black text-yellow-300 drop-shadow-[0_6px_20px_rgba(239,68,68,1)] px-8 py-3 bg-red-600 border-4 border-yellow-300 rounded-3xl">
+              💥 终极全面消灭！
+            </div>
+          `;
+          stage.appendChild(boomText);
+        }, 460);
+
+        setTimeout(() => {
+          document.body.classList.remove('monster-screen-shake');
+          stage.classList.add('hidden');
+          stage.innerHTML = '';
+          this.isDestroying = false;
+          if (typeof onComplete === 'function') onComplete();
+        }, 1050);
+      }
+    };
+
     function deleteSingleRow(idx) {
-      currentRecords.splice(idx, 1);
-      renderTable();
-      saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
+      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
+        MonsterDeleter.destroyRow(idx, () => {
+          currentRecords.splice(idx, 1);
+          renderTable();
+          saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
+        });
+      } else {
+        currentRecords.splice(idx, 1);
+        renderTable();
+        saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
+      }
     }
 
     function deleteSelectedRows() {
       const checkboxes = document.querySelectorAll('.row-checkbox:checked');
       const indices = Array.from(checkboxes).map(c => parseInt(c.getAttribute('data-index'))).sort((a, b) => b - a);
       if (!indices.length) { alert('请先勾选需要删除的行！'); return; }
-      indices.forEach(idx => currentRecords.splice(idx, 1));
-      renderTable();
-      saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
+
+      if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
+        MonsterDeleter.destroySelected(indices, () => {
+          indices.forEach(idx => currentRecords.splice(idx, 1));
+          renderTable();
+          saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
+        });
+      } else {
+        indices.forEach(idx => currentRecords.splice(idx, 1));
+        renderTable();
+        saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
+      }
     }
 
     async function clearAllRecords() {
       if (!currentRecords.length) return;
       if (confirm('确定要全新清空当前模块的所有机型记录吗？（将同步清空云端数据库与本地记忆）')) {
-        const targetMod = currentModule;
-        currentRecords = [];
-        localStorage.removeItem('3c_records_' + targetMod);
-        localStorage.setItem('3c_migrated_' + targetMod, '1');
-        renderTable();
-        try {
-          const res = await fetch('/api/records/clear', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ module: targetMod })
-          });
-          const data = await res.json();
-          if (res.ok && data.status === 'ok') {
-            updateCloudSyncBadge(data.backend);
+        const doClear = async () => {
+          const targetMod = currentModule;
+          currentRecords = [];
+          localStorage.removeItem('3c_records_' + targetMod);
+          localStorage.setItem('3c_migrated_' + targetMod, '1');
+          renderTable();
+          try {
+            const res = await fetch('/api/records/clear', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ module: targetMod })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'ok') {
+              updateCloudSyncBadge(data.backend);
+            }
+          } catch (e) {
+            console.error('清空云端记录失败', e);
+            updateCloudSyncBadge('offline');
           }
-        } catch (e) {
-          console.error('清空云端记录失败', e);
-          updateCloudSyncBadge('offline');
+        };
+
+        if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
+          MonsterDeleter.destroyAll(() => {
+            doClear();
+          });
+        } else {
+          doClear();
         }
       }
     }
@@ -3206,6 +3726,8 @@
       spinBoost: 0,
       blinkProgress: 0,
       nextBlinkAt: 0,
+      eatingState: null,
+      nomAudioCtx: null,
 
       skins: {
         orange: { name: '招财橘猫', body: 0xffa94d, belly: 0xfff3e0, earInner: 0xff8fa3, collar: 0xef4444, bell: 0xfacc15, eye: 0x1e293b, cheek: 0xff758f, cyber: false },
@@ -3481,6 +4003,12 @@
         nose.position.set(0, -0.07, 0.68);
         headGroup.add(nose);
 
+        // 投喂食物 3D 挂载点 (位于猫咪胸前两爪之间)
+        const foodHolder = new THREE.Group();
+        foodHolder.position.set(0, -0.06, 0.44);
+        foodHolder.visible = false;
+        bodyGroup.add(foodHolder);
+
         this.threeCtx.parts = {
           bodyGroup,
           headGroup,
@@ -3490,8 +4018,135 @@
           rightEye,
           leftArm,
           rightArm,
-          tailGroup
+          tailGroup,
+          muzzle,
+          foodHolder
         };
+      },
+
+      build3DFood(foodKey) {
+        const fg = new THREE.Group();
+        if (foodKey === 'fish') {
+          // Q版小鱼干：浅蓝金属鱼身 + 尾鳍 + 眼睛 + 背鳍
+          const matFish = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35, metalness: 0.3 });
+          const matTail = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
+          const matEye = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+          const matWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), matFish);
+          body.scale.set(1.5, 0.72, 0.45);
+          fg.add(body);
+
+          const tail = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 10), matTail);
+          tail.position.set(-0.3, 0, 0);
+          tail.rotation.z = Math.PI / 2;
+          tail.scale.set(1.1, 0.25, 0.9);
+          fg.add(tail);
+
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), matEye);
+          eye.position.set(0.16, 0.04, 0.09);
+          const eyeDot = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), matWhite);
+          eyeDot.position.set(0.175, 0.05, 0.1);
+          fg.add(eye, eyeDot);
+
+          const fin = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.12, 8), matTail);
+          fin.position.set(0, 0.15, 0);
+          fin.rotation.z = -0.3;
+          fin.scale.set(0.6, 0.2, 1);
+          fg.add(fin);
+        } else if (foodKey === 'drumstick') {
+          // 金黄烤鸡腿：丰满鸡肉 + 骨头
+          const matMeat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.55 });
+          const matBone = new THREE.MeshStandardMaterial({ color: 0xfffbeb, roughness: 0.3 });
+
+          const meat = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 14), matMeat);
+          meat.scale.set(1.35, 0.95, 0.9);
+          fg.add(meat);
+
+          const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.22, 10), matBone);
+          bone.position.set(-0.24, 0, 0);
+          bone.rotation.z = Math.PI / 2;
+          fg.add(bone);
+
+          const k1 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), matBone);
+          k1.position.set(-0.35, 0.04, 0);
+          const k2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), matBone);
+          k2.position.set(-0.35, -0.04, 0);
+          fg.add(k1, k2);
+        } else if (foodKey === 'milktea') {
+          // 珍珠奶茶杯 + 吸管
+          const matCup = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2, transparent: true, opacity: 0.88 });
+          const matLid = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+          const matStraw = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 });
+
+          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.3, 16), matCup);
+          fg.add(cup);
+
+          const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.035, 16), matLid);
+          lid.position.set(0, 0.16, 0);
+          fg.add(lid);
+
+          const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 10), matStraw);
+          straw.position.set(0.04, 0.24, 0);
+          straw.rotation.z = -0.22;
+          fg.add(straw);
+        } else if (foodKey === 'can') {
+          // 豪华猫罐头 + 掀起的铝箔盖
+          const matCan = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3, metalness: 0.6 });
+          const matSilver = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.25, metalness: 0.8 });
+
+          const can = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.18, 18), matCan);
+          fg.add(can);
+
+          const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.02, 18), matSilver);
+          lid.position.set(0, 0.11, -0.07);
+          lid.rotation.x = 0.75;
+          fg.add(lid);
+        }
+        return fg;
+      },
+
+      playNomSound() {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          if (!this.nomAudioCtx) this.nomAudioCtx = new AC();
+          const ctx = this.nomAudioCtx;
+          if (ctx.state === 'suspended') ctx.resume();
+
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          const freq = 380 + Math.random() * 80;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(160, ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.1);
+        } catch (e) {}
+      },
+
+      spawnChewCrumb(colorHex = 0xfacc15) {
+        if (!this.threeCtx || typeof THREE === 'undefined') return;
+        const { scene, particles } = this.threeCtx;
+        const geo = new THREE.SphereGeometry(0.026, 8, 8);
+        for (let i = 0; i < 2; i++) {
+          const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set((Math.random() - 0.5) * 0.18, 0.36, 0.52);
+          scene.add(mesh);
+          particles.push({
+            mesh,
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: -0.6 - Math.random() * 0.5,
+            vz: 0.3 + Math.random() * 0.4,
+            life: 0,
+            maxLife: 0.45
+          });
+        }
       },
 
       spawn3DBurst(colorHex = 0xfacc15) {
@@ -3521,6 +4176,7 @@
         const t = now * 0.001;
         const h = this.state.hunger;
         const isHungry = h < 35;
+        const isEating = Boolean(this.eatingState);
 
         // 跳跃物理（投喂/互动时弹跳）
         if (this.jumpY > 0 || this.jumpVel !== 0) {
@@ -3549,22 +4205,96 @@
         const sScale = Math.max(0.55, 1 - this.jumpY * 0.35);
         shadowMesh.scale.set(sScale, sScale, 1);
 
-        // 头部平滑注视鼠标光标
-        const targetHeadY = this.pointerNDC.x * 0.42;
-        const targetHeadX = (isHungry ? 0.18 : 0) + this.pointerNDC.y * 0.25;
-        parts.headGroup.rotation.y += (targetHeadY - parts.headGroup.rotation.y) * Math.min(1, dt * 7);
-        parts.headGroup.rotation.x += (targetHeadX - parts.headGroup.rotation.x) * Math.min(1, dt * 7);
+        // 进食吃东西动画状态驱动 (咀嚼、手捧食物、掉食物碎屑、尾巴兴奋摇摆)
+        if (isEating) {
+          const elapsed = now - this.eatingState.startTime;
+          const ep = Math.min(1.0, elapsed / this.eatingState.duration);
+          const chew = Math.sin(elapsed * 0.02); // 约 10Hz 咀嚼啃咬频率
+
+          // 1. 双爪抱持食物贴近胸前
+          parts.leftArm.position.set(-0.25, -0.08, 0.42);
+          parts.leftArm.rotation.set(0.35, 0.45, 0.7);
+          parts.rightArm.position.set(0.25, -0.08, 0.42);
+          parts.rightArm.rotation.set(0.35, -0.45, -0.7);
+
+          // 2. 头部低头啃咬与嘴部咀嚼变形
+          parts.headGroup.rotation.x = 0.22 + chew * 0.08;
+          parts.headGroup.rotation.y = Math.sin(elapsed * 0.005) * 0.08;
+          parts.headGroup.position.y = 0.54 - 0.05 + Math.abs(chew) * 0.03;
+          if (parts.muzzle) {
+            parts.muzzle.scale.y = 0.85 + chew * 0.16;
+            parts.muzzle.position.z = 0.52 + Math.abs(chew) * 0.03;
+          }
+
+          // 3. 食物随咀嚼晃动并在后 35% 渐渐被吃完缩小入嘴
+          if (parts.foodHolder) {
+            parts.foodHolder.visible = true;
+            parts.foodHolder.position.y = -0.06 + chew * 0.02;
+            parts.foodHolder.rotation.z = Math.sin(elapsed * 0.008) * 0.15;
+            let foodScale = 1.0;
+            if (ep > 0.65) {
+              foodScale = Math.max(0.001, 1 - (ep - 0.65) / 0.35);
+            }
+            parts.foodHolder.scale.set(foodScale, foodScale, foodScale);
+          }
+
+          // 4. 定时掉落食物碎屑与咀嚼声
+          if (now - this.eatingState.lastCrumbAt > 180) {
+            this.eatingState.lastCrumbAt = now;
+            this.spawnChewCrumb(this.eatingState.food.color);
+          }
+          if (now - this.eatingState.lastNomAt > 280) {
+            this.eatingState.lastNomAt = now;
+            this.playNomSound();
+          }
+
+          // 5. 开心快速摇尾巴
+          parts.tailGroup.rotation.y = Math.sin(t * 16) * 0.55;
+
+          // 6. 进食完成收尾结算
+          if (ep >= 1.0) {
+            if (parts.foodHolder) parts.foodHolder.visible = false;
+            const food = this.eatingState.food;
+            const before = this.eatingState.beforeHunger;
+            this.state.hunger = Math.min(100, this.state.hunger + food.hunger);
+            this.state.affection = Math.min(9999, this.state.affection + food.affection);
+            this.state.feedCount += 1;
+            this.state.lastTickAt = Date.now();
+            this.saveState();
+            this.render();
+
+            this.jumpVel = 4.4;
+            this.spinBoost = 1.0;
+            this.spawn3DBurst(food.color);
+            const gained = this.state.hunger - before;
+            this.spawnFloatFeedback(`${food.icon} +${gained > 0 ? gained : food.affection}${gained > 0 ? ' 饱食' : ' 亲密'}`);
+            this.showSpeech(this.state.hunger >= 95 ? '吃得好饱好满足呀，谢谢主人投喂 ❤️' : food.quote);
+
+            // 还原小爪子位置与表情
+            parts.leftArm.position.set(-0.48, -0.32, 0.28);
+            parts.rightArm.position.set(0.48, -0.32, 0.28);
+            const fallback = document.getElementById('pet-emoji-face');
+            if (fallback) fallback.textContent = this.state.hunger >= 80 ? '😸' : (this.state.hunger <= 30 ? '😿' : '🐱');
+            this.eatingState = null;
+          }
+        } else {
+          // 头部平滑注视鼠标光标 (非进食状态)
+          const targetHeadY = this.pointerNDC.x * 0.42;
+          const targetHeadX = (isHungry ? 0.18 : 0) + this.pointerNDC.y * 0.25;
+          parts.headGroup.rotation.y += (targetHeadY - parts.headGroup.rotation.y) * Math.min(1, dt * 7);
+          parts.headGroup.rotation.x += (targetHeadX - parts.headGroup.rotation.x) * Math.min(1, dt * 7);
+
+          // 小爪子挥动与尾巴摇摆
+          const wave = isHungry ? 0.1 : Math.sin(t * 4.2) * 0.16;
+          parts.leftArm.rotation.z = 0.35 + wave;
+          parts.rightArm.rotation.z = -0.35 - wave;
+          parts.tailGroup.rotation.y = Math.sin(t * (isHungry ? 2.0 : 5.5)) * (isHungry ? 0.15 : 0.42);
+        }
 
         // 饥饿耳垂 vs 开心抖耳
         const baseEarAngle = isHungry ? 0.68 : 0.32 + Math.sin(t * 4) * 0.05;
         parts.leftEar.rotation.z = baseEarAngle;
         parts.rightEar.rotation.z = -baseEarAngle;
-
-        // 小爪子挥动与尾巴摇摆
-        const wave = isHungry ? 0.1 : Math.sin(t * 4.2) * 0.16;
-        parts.leftArm.rotation.z = 0.35 + wave;
-        parts.rightArm.rotation.z = -0.35 - wave;
-        parts.tailGroup.rotation.y = Math.sin(t * (isHungry ? 2.0 : 5.5)) * (isHungry ? 0.15 : 0.42);
 
         // 定时眨眼
         if (now >= this.nextBlinkAt) {
@@ -3685,19 +4415,38 @@
       feed(foodKey) {
         const food = this.foods[foodKey];
         if (!food) return;
-        const before = this.state.hunger;
-        this.state.hunger = Math.min(100, this.state.hunger + food.hunger);
-        this.state.affection = Math.min(9999, this.state.affection + food.affection);
-        this.state.feedCount += 1;
-        this.state.lastTickAt = Date.now();
-        this.saveState();
-        this.render();
-        this.jumpVel = 4.2;
-        this.spinBoost = 1.0;
-        this.spawn3DBurst(food.color);
-        const gained = this.state.hunger - before;
-        this.spawnFloatFeedback(`${food.icon} +${gained > 0 ? gained : food.affection}${gained > 0 ? ' 饱食' : ' 亲密'}`);
-        this.showSpeech(this.state.hunger >= 95 ? '吃得好撑呀，谢谢主人投喂 ❤️' : food.quote);
+        if (this.eatingState) {
+          this.showSpeech('正在津津有味吃着呢喵，等吃完再投喂吧~ 🐾', 1600);
+          return;
+        }
+
+        // 启动 3D 吃东西过程动作 (双手拿食物啃咬咀嚼持续约 2.5 秒)
+        this.eatingState = {
+          foodKey,
+          food,
+          startTime: performance.now(),
+          duration: 2500,
+          beforeHunger: this.state.hunger,
+          lastCrumbAt: 0,
+          lastNomAt: 0,
+        };
+
+        // 挂载 3D 食物道具到猫咪双爪之间
+        if (this.threeCtx && this.threeCtx.parts && this.threeCtx.parts.foodHolder) {
+          const fh = this.threeCtx.parts.foodHolder;
+          while (fh.children.length > 0) fh.remove(fh.children[0]);
+          const foodMesh = this.build3DFood(foodKey);
+          fh.add(foodMesh);
+          fh.visible = true;
+          fh.scale.set(1, 1, 1);
+        }
+
+        // 2D 降级 Emoji 表情适配
+        const fallback = document.getElementById('pet-emoji-face');
+        if (fallback) fallback.textContent = '😋';
+
+        this.showSpeech(`嗷呜嗷呜…正在大口嚼${food.name}中 😋`, 2400);
+        this.playNomSound();
       },
 
       pat() {
@@ -3918,6 +4667,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       FunSuite.init();
       DesktopPet.init();
+      MonsterDeleter.init();
     });
   </script>
 

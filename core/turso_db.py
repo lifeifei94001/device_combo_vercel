@@ -303,6 +303,16 @@ class TursoDualStore:
             "CREATE INDEX IF NOT EXISTS idx_dict_items_cat_sort ON dict_items (category, sort_order, id)",
             (),
         ),
+        (
+            """
+            CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """.strip(),
+            (),
+        ),
     ]
 
     _DICT_CATEGORIES = (
@@ -355,10 +365,10 @@ class TursoDualStore:
             if self._initialized:
                 return
             rows = self._backend.query(
-                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('device_records', 'operation_logs', 'dict_items')"
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('device_records', 'operation_logs', 'dict_items', 'app_settings')"
             )
             existing_count = int(rows[0][0]) if rows else 0
-            if existing_count < 3:
+            if existing_count < 4:
                 self._backend.execute_tx(self._DDL_STATEMENTS)
             self._initialized = True
 
@@ -487,6 +497,56 @@ class TursoDualStore:
             ]
         )
         return {"category": cat, "item_key": key, "item_value": val}
+
+    def get_all_settings(self) -> Dict[str, Any]:
+        """获取所有全局偏好配置（跨浏览器/跨设备云端同步）"""
+        self.ensure_db_ready()
+        rows = self._backend.query("SELECT setting_key, setting_value FROM app_settings")
+        settings: Dict[str, Any] = {
+            "monster_deleter": True,  # 默认开启大将怪兽摧毁删除
+        }
+        for k, v in rows:
+            key_str = str(k)
+            val_str = str(v)
+            try:
+                settings[key_str] = json.loads(val_str)
+            except Exception:
+                settings[key_str] = val_str
+        return settings
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        self.ensure_db_ready()
+        rows = self._backend.query("SELECT setting_value FROM app_settings WHERE setting_key = ?", (key,))
+        if not rows:
+            return default
+        val_str = str(rows[0][0])
+        try:
+            return json.loads(val_str)
+        except Exception:
+            return val_str
+
+    def set_setting(self, key: str, value: Any) -> Dict[str, Any]:
+        return self.set_settings({key: value})
+
+    def set_settings(self, settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """批量原子保存偏好设置至 Turso / SQLite"""
+        self.ensure_db_ready()
+        if not settings_dict or not isinstance(settings_dict, dict):
+            return self.get_all_settings()
+        ts = now_str()
+        stmts: List[Tuple[str, Sequence[Any]]] = []
+        for k, v in settings_dict.items():
+            key_clean = str(k).strip()
+            if not key_clean:
+                continue
+            val_encoded = json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v
+            stmts.append((
+                "INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
+                (key_clean, val_encoded, ts),
+            ))
+        if stmts:
+            self._backend.execute_tx(stmts)
+        return self.get_all_settings()
 
     def get_backend_info(self) -> Dict[str, Any]:
         return {

@@ -268,6 +268,38 @@ def clear_operation_logs():
         return jsonify({"status": "error", "msg": f"清空日志失败: {str(e)}"}), 500
 
 
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """获取云端多端同步偏好设置（如大将怪兽摧毁模式开关等）"""
+    try:
+        settings = turso_store.get_all_settings()
+        return jsonify({
+            "status": "ok",
+            "backend": turso_store.get_backend_info().get("mode"),
+            "settings": settings,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"读取云端配置失败: {str(e)}"}), 500
+
+
+@app.route('/api/settings', methods=['POST'])
+def save_settings():
+    """保存或更新全局偏好设置（跨浏览器实时同步）"""
+    try:
+        data = request.get_json(force=True) or {}
+        incoming_settings = data.get('settings') if 'settings' in data else data
+        if not isinstance(incoming_settings, dict):
+            return jsonify({"status": "error", "msg": "settings 必须为 JSON 对象"}), 400
+        saved = turso_store.set_settings(incoming_settings)
+        return jsonify({
+            "status": "ok",
+            "backend": turso_store.get_backend_info().get("mode"),
+            "settings": saved,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"保存云端配置失败: {str(e)}"}), 500
+
+
 _PROXY_SESSION = requests.Session()
 _PROXY_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
