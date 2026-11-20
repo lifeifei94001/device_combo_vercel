@@ -945,14 +945,20 @@
     let modalAllItems = [];
     let searchDebounceTimer = null;
 
+    // 记录数据防竞态与脏数据状态追踪
+    let recordRevision = 0;   // 本地记录数据变更版本计数
+    let isUserDirty = false;   // 标记本地是否有未保存或刚生成的改动，防止被异步加载覆盖
+    let activeLoadSeq = 0;     // loadModuleRecords 异步请求序数
+    let inFlightSaves = 0;     // 正在提交中的保存请求计数
+
     window.onload = async () => {
       startLiveClock();
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
       document.getElementById('a-release-time').value = today;
       document.getElementById('l-release-time').value = today;
       document.getElementById('w-release-time').value = today;
-      await loadDictData();
-      await loadModuleRecords();
+      // 并行启动字典与机型记录加载，互不阻塞，防止冷启动网络延迟卡顿
+      Promise.allSettled([loadDictData(), loadModuleRecords()]);
     };
 
     function startLiveClock() {
@@ -1017,7 +1023,13 @@
     }
 
     function switchModule(mod) {
+      if (currentModule === mod) return;
+      if (isUserDirty && currentRecords.length > 0) {
+        saveCurrentRecords(false, { action: 'switch_module', detail: `切换模块前自动暂存 ${currentRecords.length} 条记录` });
+      }
       currentModule = mod;
+      isUserDirty = false;
+      currentRecords = [];
       ['home', 'android', 'laptop', 'watch'].forEach(m => {
         const btn = document.getElementById(`nav-${m}`);
         if (btn) {
@@ -1091,6 +1103,9 @@
       const targetMod = currentModule;
       if (!['android', 'laptop', 'watch'].includes(targetMod)) return;
 
+      const thisLoadSeq = ++activeLoadSeq;
+      const loadStartRevision = recordRevision;
+
       let localRecords = [];
       try {
         const localData = localStorage.getItem('3c_records_' + targetMod);
@@ -1102,14 +1117,22 @@
         console.error('读取本地缓存异常', e);
       }
 
-      // 先即时展示本地缓存，避免切换闪烁
-      currentRecords = localRecords;
-      renderTable();
+      // 仅当当前内存无数据且用户未编辑时，才用本地缓存初始化，避免冲掉刚输入的新记录
+      if (currentRecords.length === 0 && !isUserDirty && localRecords.length > 0) {
+        currentRecords = localRecords;
+        renderTable();
+      }
 
       try {
         const res = await fetch(`/api/records?module=${encodeURIComponent(targetMod)}`);
         const data = await res.json();
-        if (currentModule !== targetMod) return;
+        if (currentModule !== targetMod || thisLoadSeq !== activeLoadSeq) return;
+
+        // 核心防竞态：如果在网络请求等待期间，用户已有新的输入/生成/删除，或者正在向云端提交，切勿覆盖内存！
+        if (recordRevision !== loadStartRevision || isUserDirty || inFlightSaves > 0) {
+          if (res.ok && data.status === 'ok') updateCloudSyncBadge(data.backend);
+          return;
+        }
 
         if (res.ok && data.status === 'ok') {
           updateCloudSyncBadge(data.backend);
@@ -1119,8 +1142,13 @@
             localStorage.setItem('3c_records_' + targetMod, JSON.stringify(cloudRecords));
             localStorage.setItem('3c_migrated_' + targetMod, '1');
             renderTable();
+          } else if (currentRecords.length > 0) {
+            // 云端为空但当前本地/内存有记录，不抹除，反向同步上云
+            saveCurrentRecords(false, { action: 'auto_sync', detail: '本地记忆自动同步至云端' });
           } else if (localRecords.length > 0 && !localStorage.getItem('3c_migrated_' + targetMod)) {
             // 策略 2A：云端为空且存在本地历史草稿时自动迁移上云
+            currentRecords = localRecords;
+            renderTable();
             const saveRes = await fetch('/api/records/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1137,9 +1165,12 @@
               updateCloudSyncBadge(saveData.backend, `☁️ 已迁移 ${localRecords.length} 条草稿`);
             }
           } else {
-            currentRecords = [];
-            localStorage.setItem('3c_migrated_' + targetMod, '1');
-            renderTable();
+            // 云端和本地均为空
+            if (!isUserDirty && currentRecords.length === 0) {
+              currentRecords = [];
+              localStorage.setItem('3c_migrated_' + targetMod, '1');
+              renderTable();
+            }
           }
         } else {
           updateCloudSyncBadge('offline', '⚠️ 云端读取失败，已用本地缓存');
@@ -1312,6 +1343,8 @@
         };
       }
 
+      recordRevision++;
+      isUserDirty = true;
       currentRecords.push(rec);
       renderTable();
       saveCurrentRecords();
@@ -1332,6 +1365,7 @@
       const targetMod = currentModule;
       const snapshot = currentRecords.slice();
       const seq = ++saveRequestSeq;
+      inFlightSaves++;
       try {
         localStorage.setItem('3c_records_' + targetMod, JSON.stringify(snapshot));
         localStorage.setItem('3c_migrated_' + targetMod, '1');
@@ -1350,6 +1384,10 @@
           })
         });
         const data = await res.json();
+        inFlightSaves = Math.max(0, inFlightSaves - 1);
+        if (seq === saveRequestSeq) {
+          isUserDirty = false;
+        }
         if (seq !== saveRequestSeq && !notify) return;
         if (res.ok && data.status === 'ok') {
           updateCloudSyncBadge(data.backend);
@@ -1362,6 +1400,7 @@
           if (notify) alert(`⚠️ 云端保存失败 (${data.msg || '未知错误'})，已先暂存在浏览器本地缓存！`);
         }
       } catch (e) {
+        inFlightSaves = Math.max(0, inFlightSaves - 1);
         console.error('同步云端失败', e);
         updateCloudSyncBadge('offline', '⚠️ 网络异常，已暂存本地');
         if (notify) alert('⚠️ 网络异常，记录已暂存在浏览器本地缓存，稍后可再次保存同步云端！');
@@ -1934,11 +1973,15 @@
     function deleteSingleRow(idx) {
       if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
         MonsterDeleter.destroyRow(idx, () => {
+          recordRevision++;
+          isUserDirty = true;
           currentRecords.splice(idx, 1);
           renderTable();
           saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
         });
       } else {
+        recordRevision++;
+        isUserDirty = true;
         currentRecords.splice(idx, 1);
         renderTable();
         saveCurrentRecords(false, { action: 'delete', detail: '删除单条机型记录' });
@@ -1952,11 +1995,15 @@
 
       if (typeof MonsterDeleter !== 'undefined' && MonsterDeleter.enabled) {
         MonsterDeleter.destroySelected(indices, () => {
+          recordRevision++;
+          isUserDirty = true;
           indices.forEach(idx => currentRecords.splice(idx, 1));
           renderTable();
           saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
         });
       } else {
+        recordRevision++;
+        isUserDirty = true;
         indices.forEach(idx => currentRecords.splice(idx, 1));
         renderTable();
         saveCurrentRecords(false, { action: 'delete', detail: `批量删除 ${indices.length} 条机型记录` });
@@ -1968,6 +2015,8 @@
       if (confirm('确定要全新清空当前模块的所有机型记录吗？（将同步清空云端数据库与本地记忆）')) {
         const doClear = async () => {
           const targetMod = currentModule;
+          recordRevision++;
+          isUserDirty = false;
           currentRecords = [];
           localStorage.removeItem('3c_records_' + targetMod);
           localStorage.setItem('3c_migrated_' + targetMod, '1');
@@ -2065,6 +2114,8 @@
           });
           const data = await res.json();
           if (data.status === 'ok') {
+            recordRevision++;
+            isUserDirty = true;
             currentRecords.push(...data.records);
             renderTable();
             await saveCurrentRecords(false, { skipLog: true });
