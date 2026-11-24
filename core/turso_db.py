@@ -482,21 +482,147 @@ class TursoDualStore:
             (cat,),
         )
         next_order = int(order_rows[0][0]) if order_rows else 0
-        self._backend.execute_tx(
-            [
-                (
-                    "INSERT OR IGNORE INTO dict_items (category, item_key, item_value, sort_order, created_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (cat, key, val, next_order, ts),
-                ),
-                (
-                    "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
-                    "VALUES ('dict', 'save', 1, 0, ?, ?)",
-                    (f"新增字典项 [{cat}]: {val}" + (f" (ID:{key})" if key else ""), ts),
-                ),
-            ]
-        )
+        stmts: List[Tuple[str, Sequence[Any]]] = []
+        if cat == "brands":
+            existing_rows = self._backend.query(
+                "SELECT id, item_key, item_value FROM dict_items WHERE category = 'brands' AND LOWER(item_value) = LOWER(?)",
+                (val,),
+            )
+            if existing_rows:
+                row_id, old_key, old_val = existing_rows[0]
+                if str(old_key or "").strip() != key:
+                    stmts.append((
+                        "UPDATE dict_items SET item_key = ? WHERE id = ?",
+                        (key, int(row_id)),
+                    ))
+                    stmts.append((
+                        "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
+                        "VALUES ('dict', 'save', 1, 0, ?, ?)",
+                        (f"更新品牌编号 [{old_val}]: {old_key} -> {key}", ts),
+                    ))
+                    self._backend.execute_tx(stmts)
+                return {"category": cat, "item_key": key, "item_value": str(old_val)}
+
+        stmts.extend([
+            (
+                "INSERT OR IGNORE INTO dict_items (category, item_key, item_value, sort_order, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (cat, key, val, next_order, ts),
+            ),
+            (
+                "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
+                "VALUES ('dict', 'save', 1, 0, ?, ?)",
+                (f"新增字典项 [{cat}]: {val}" + (f" (ID:{key})" if key else ""), ts),
+            ),
+        ])
+        self._backend.execute_tx(stmts)
         return {"category": cat, "item_key": key, "item_value": val}
+
+    def learn_dict_items(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """批量静默学习未入库的新字典参数（品牌支持按最新编号覆盖更新，其余分类缺失则追加）"""
+        if not items or not isinstance(items, list):
+            return {"added": [], "updated": [], "changed": False}
+
+        self.ensure_dict_seeded()
+
+        # 过滤并按分类整理待检测项，保持提交顺序且先去重
+        cleaned: List[Tuple[str, str, str]] = []
+        seen_input = set()
+        touched_cats = set()
+        for raw in items:
+            if not isinstance(raw, dict):
+                continue
+            cat = str(raw.get("category") or "").strip()
+            val = str(raw.get("item_value") or "").strip()
+            key = str(raw.get("item_key") or "").strip()
+            if cat not in self._DICT_CATEGORIES or not val:
+                continue
+            if cat == "brands" and not key:
+                continue
+            dedupe_sig = (cat, val.lower())
+            if cat == "brands":
+                # 同一次提交以最后出现的品牌编号为准，先暂存并在后面统一合并
+                cleaned = [c for c in cleaned if (c[0], c[2].lower()) != dedupe_sig]
+            elif dedupe_sig in seen_input:
+                continue
+            seen_input.add(dedupe_sig)
+            cleaned.append((cat, key, val))
+            touched_cats.add(cat)
+
+        if not cleaned:
+            return {"added": [], "updated": [], "changed": False}
+
+        placeholders = ", ".join(["?"] * len(touched_cats))
+        cat_list = list(touched_cats)
+        existing_rows = self._backend.query(
+            f"SELECT id, category, item_key, item_value, sort_order FROM dict_items WHERE category IN ({placeholders})",
+            cat_list,
+        )
+
+        # 构建已有索引：(cat, lower_val) -> (id, key, val) 以及每个分类当前最大 sort_order
+        existing_map: Dict[Tuple[str, str], Tuple[int, str, str]] = {}
+        max_order_map: Dict[str, int] = {c: -1 for c in touched_cats}
+        for row_id, cat_str, old_key, old_val, sort_order in existing_rows:
+            c_s = str(cat_str)
+            v_s = str(old_val or "")
+            k_s = str(old_key or "")
+            existing_map[(c_s, v_s.lower())] = (int(row_id), k_s, v_s)
+            so = int(sort_order or 0)
+            if so > max_order_map.get(c_s, -1):
+                max_order_map[c_s] = so
+
+        ts = now_str()
+        stmts: List[Tuple[str, Sequence[Any]]] = []
+        added: List[Dict[str, str]] = []
+        updated: List[Dict[str, str]] = []
+
+        for cat, key, val in cleaned:
+            sig = (cat, val.lower())
+            if sig in existing_map:
+                if cat == "brands":
+                    row_id, old_key, old_val = existing_map[sig]
+                    if old_key.strip() != key:
+                        stmts.append((
+                            "UPDATE dict_items SET item_key = ? WHERE id = ?",
+                            (key, row_id),
+                        ))
+                        updated.append({"category": cat, "item_key": key, "item_value": old_val, "old_key": old_key})
+                        existing_map[sig] = (row_id, key, old_val)
+                continue
+
+            next_order = max_order_map.get(cat, -1) + 1
+            max_order_map[cat] = next_order
+            stmts.append((
+                "INSERT OR IGNORE INTO dict_items (category, item_key, item_value, sort_order, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (cat, key, val, next_order, ts),
+            ))
+            added.append({"category": cat, "item_key": key, "item_value": val})
+            existing_map[sig] = (-1, key, val)
+
+        if not stmts:
+            return {"added": [], "updated": [], "changed": False}
+
+        summary_parts: List[str] = []
+        if added:
+            preview = "、".join(
+                f"{a['item_value']}({a['item_key']})" if a["category"] == "brands" else a["item_value"]
+                for a in added[:6]
+            )
+            if len(added) > 6:
+                preview += f" 等共{len(added)}项"
+            summary_parts.append(f"自动记住新参数: {preview}")
+        if updated:
+            up_preview = "、".join(f"{u['item_value']}({u['old_key']}->{u['item_key']})" for u in updated[:4])
+            summary_parts.append(f"更新品牌编号: {up_preview}")
+
+        stmts.append((
+            "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
+            "VALUES ('dict', 'save', ?, 0, ?, ?)",
+            (len(added) + len(updated), "；".join(summary_parts), ts),
+        ))
+        self._backend.execute_tx(stmts)
+        return {"added": added, "updated": updated, "changed": True}
 
     def get_all_settings(self) -> Dict[str, Any]:
         """获取所有全局偏好配置（跨浏览器/跨设备云端同步）"""

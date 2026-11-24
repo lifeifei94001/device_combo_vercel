@@ -79,6 +79,31 @@ def add_dict_item():
         return jsonify({"status": "error", "msg": f"新增字典项失败: {str(e)}"}), 500
 
 
+@app.route('/api/dict/learn', methods=['POST'])
+def learn_dict_items():
+    """批量自动学习并写入未入库的新参数至 Turso / SQLite"""
+    try:
+        data = request.get_json(force=True) or {}
+        items = data.get('items', [])
+        if not isinstance(items, list):
+            return jsonify({"status": "error", "msg": "items 必须为数组"}), 400
+        result = turso_store.learn_dict_items(items)
+        updated_dict = None
+        if result.get("changed"):
+            dict_manager.load_dictionary(force=True)
+            updated_dict = dict_manager.to_dict()
+            updated_dict["backend"] = turso_store.get_backend_info().get("mode")
+        return jsonify({
+            "status": "ok",
+            "added": result.get("added", []),
+            "updated": result.get("updated", []),
+            "changed": bool(result.get("changed")),
+            "dict": updated_dict,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": f"自动写入字典失败: {str(e)}"}), 500
+
+
 @app.route('/api/template/download', methods=['GET'])
 def download_template():
     """生成并流式下载 Excel 标准模版 (纯内存流 io.BytesIO)"""

@@ -242,7 +242,7 @@
         </label>
       </div>
 
-      <div id="cloud-sync-badge" class="text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate">
+      <div id="cloud-sync-badge" class="hidden text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate">
         ☁️ 正在连接云端存储...
       </div>
 
@@ -401,7 +401,7 @@
 
                 <div class="col-span-2">
                   <label class="block text-xs font-medium text-gray-700 mb-1">品牌编号/ID</label>
-                  <input type="text" id="a-brand-id" placeholder="如: 101" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="a-brand-id" oninput="onBrandIdInput(this.value, 'android')" placeholder="如: 101" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                 </div>
 
                 <div class="col-span-2">
@@ -422,18 +422,19 @@
                 <div class="col-span-2">
                   <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
                   <div class="flex space-x-1">
-                    <input type="text" id="a-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="a-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="a-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="a-on-price" value="5" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="a-off-price" value="5" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="a-min-price" value="5" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
                   </div>
                 </div>
               </div>
 
               <!-- 内存、渠道、网络 -->
               <div class="grid grid-cols-12 gap-3 items-center">
-                <div class="col-span-3">
+                <div id="a-memory-wrap" class="col-span-3 relative">
                   <label class="block text-xs font-medium text-gray-700 mb-1">内存配置 (空格分隔 / 1TB单位)</label>
-                  <input type="text" id="a-memory" onblur="this.value = cleanMemoryString(this.value)" onchange="this.value = cleanMemoryString(this.value)" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="a-memory" autocomplete="off" oninput="onAndroidMemoryInput(this)" onfocus="onAndroidMemoryInput(this)" onkeydown="onAndroidMemoryKeydown(event)" onblur="this.value = cleanMemoryString(this.value); scheduleHideMemorySuggest();" onchange="this.value = cleanMemoryString(this.value)" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <div id="a-memory-suggest" class="hidden absolute left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto py-1"></div>
                 </div>
                 <div class="col-span-3">
                   <label class="block text-xs font-medium text-gray-700 mb-1">购买渠道 (可检索/默认国行)</label>
@@ -491,7 +492,7 @@
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">品牌ID</label>
-                  <input type="text" id="l-brand-id" placeholder="如: 201" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="l-brand-id" oninput="onBrandIdInput(this.value, 'laptop')" placeholder="如: 201" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">别名</label>
@@ -508,9 +509,9 @@
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
                   <div class="flex space-x-1">
-                    <input type="text" id="l-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="l-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="l-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="l-on-price" value="5" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="l-off-price" value="5" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="l-min-price" value="5" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
                   </div>
                 </div>
               </div>
@@ -561,7 +562,7 @@
                 </div>
                 <div class="col-span-2">
                   <label class="block text-xs font-medium text-gray-700 mb-1">品牌ID</label>
-                  <input type="text" id="w-brand-id" placeholder="如: 5" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="w-brand-id" oninput="onBrandIdInput(this.value, 'watch')" placeholder="如: 5" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                 </div>
                 <div class="col-span-2">
                   <label class="block text-xs font-medium text-gray-700 mb-1">机型编号(型号)</label>
@@ -578,9 +579,9 @@
                 <div class="col-span-2">
                   <label class="block text-xs font-medium text-gray-700 mb-1">价格(开/关/底)</label>
                   <div class="flex space-x-1">
-                    <input type="text" id="w-on-price" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="w-off-price" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
-                    <input type="text" id="w-min-price" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="w-on-price" value="5" placeholder="开" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="w-off-price" value="5" placeholder="关" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
+                    <input type="text" id="w-min-price" value="5" placeholder="底" class="w-1/3 px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded">
                   </div>
                 </div>
               </div>
@@ -998,27 +999,56 @@
       }
     }
 
+    function refreshBrandDatalist() {
+      const dl = document.getElementById('brand-datalist');
+      if (!dl || !Array.isArray(dictData.brands)) return;
+      dl.innerHTML = '';
+      dictData.brands.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.innerText = `ID: ${b.id}`;
+        dl.appendChild(opt);
+      });
+    }
+
     async function loadDictData() {
       try {
         const res = await fetch('/api/dict/data');
         dictData = await res.json();
-        const dl = document.getElementById('brand-datalist');
-        dl.innerHTML = '';
-        dictData.brands.forEach(b => {
-          const opt = document.createElement('option');
-          opt.value = b.name;
-          opt.innerText = `ID: ${b.id}`;
-          dl.appendChild(opt);
-        });
+        refreshBrandDatalist();
       } catch (e) { console.error('加载字典异常', e); }
     }
 
+    function _getBrandEls(mod = 'android') {
+      const prefix = mod === 'laptop' ? 'l' : (mod === 'watch' ? 'w' : 'a');
+      return {
+        nameEl: document.getElementById(`${prefix}-brand-name`),
+        idEl: document.getElementById(`${prefix}-brand-id`),
+      };
+    }
+
     function onBrandInput(val, mod = 'android') {
-      const match = dictData.brands.find(b => b.name.toLowerCase() === val.trim().toLowerCase());
-      if (match) {
-        if (mod === 'android') document.getElementById('a-brand-id').value = match.id;
-        else if (mod === 'laptop') document.getElementById('l-brand-id').value = match.id;
-        else if (mod === 'watch') document.getElementById('w-brand-id').value = match.id;
+      const { nameEl, idEl } = _getBrandEls(mod);
+      if (nameEl) nameEl.dataset.autoFromId = '0';
+      const trimmed = val.trim().toLowerCase();
+      if (!trimmed || !idEl) return;
+      const match = (dictData.brands || []).find(b => b.name.toLowerCase() === trimmed);
+      if (match && match.id) {
+        idEl.value = match.id;
+      }
+    }
+
+    function onBrandIdInput(val, mod = 'android') {
+      const { nameEl } = _getBrandEls(mod);
+      const trimmedId = String(val || '').trim();
+      if (!trimmedId || !nameEl) return;
+      // 仅当品牌名为空或由编号自动带出时才反填品牌名，避免修改已有品牌编号时误覆盖品牌名称
+      const canFillName = !nameEl.value.trim() || nameEl.dataset.autoFromId === '1';
+      if (!canFillName) return;
+      const match = (dictData.brands || []).find(b => String(b.id || '').trim() === trimmedId);
+      if (match && match.name) {
+        nameEl.value = match.name;
+        nameEl.dataset.autoFromId = '1';
       }
     }
 
@@ -1087,14 +1117,12 @@
       lastBackendMode = mode || 'offline';
       const el = document.getElementById('cloud-sync-badge');
       if (!el) return;
+      el.classList.add('hidden');
       if (mode === 'turso') {
-        el.className = 'text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
         el.innerText = extraText || '☁️ Turso 云端已同步';
       } else if (mode === 'sqlite') {
-        el.className = 'text-[11px] text-blue-700 bg-blue-50/80 border border-blue-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
         el.innerText = extraText || '💾 本地 SQLite 已连接';
       } else {
-        el.className = 'text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/70 text-center py-1 px-2 rounded mb-1.5 font-medium truncate';
         el.innerText = extraText || '⚠️ 离线本地缓存模式';
       }
     }
@@ -1348,12 +1376,280 @@
       currentRecords.push(rec);
       renderTable();
       saveCurrentRecords();
+      // 后台自动检测并记住字典库中尚不存在的新参数（填写一次，下次直接带出/检索）
+      autoLearnDictItems(currentModule, rec);
+    }
+
+    function splitDictTokens(rawVal, mode = 'pause') {
+      const s = String(rawVal || '').trim();
+      if (!s || s.toLowerCase() === 'nan') return [];
+      let parts = [];
+      if (mode === 'space') {
+        parts = s.split(/\s+/);
+      } else if (s.includes('、')) {
+        parts = s.split('、');
+      } else if (s.includes(',')) {
+        parts = s.split(',');
+      } else if (s.includes(' ')) {
+        parts = s.split(/\s+/);
+      } else {
+        parts = [s];
+      }
+      return Array.from(new Set(parts.map(p => p.trim()).filter(Boolean)));
+    }
+
+    function collectUnseenDictItems(mod, rec) {
+      const candidates = [];
+      const hasInList = (cat, val) => {
+        const list = Array.isArray(dictData[cat]) ? dictData[cat] : [];
+        const low = val.toLowerCase();
+        return list.some(x => String(x || '').trim().toLowerCase() === low);
+      };
+      const pushIfNew = (cat, val) => {
+        const v = String(val || '').trim();
+        if (!v || hasInList(cat, v)) return;
+        candidates.push({ category: cat, item_value: v, item_key: '' });
+      };
+
+      const bName = String(rec['品牌名称'] || '').trim();
+      const bId = String(rec['品牌编号'] || rec['品牌ID'] || '').trim();
+      if (bName && bId) {
+        const existingBrand = (dictData.brands || []).find(b => b.name.toLowerCase() === bName.toLowerCase());
+        if (!existingBrand || String(existingBrand.id || '').trim() !== bId) {
+          candidates.push({ category: 'brands', item_value: bName, item_key: bId });
+        }
+      }
+
+      if (mod === 'android') {
+        splitDictTokens(rec['颜色'], 'pause').forEach(c => pushIfNew('mobile_colors', c));
+        splitDictTokens(rec['购买渠道'], 'space').forEach(ch => pushIfNew('mobile_channels', ch));
+        splitDictTokens(rec['网络制式'], 'space').forEach(net => pushIfNew('mobile_networks', net));
+        splitDictTokens(rec['内存'], 'space').forEach(mem => {
+          if (mem.includes('+')) {
+            const [ram, rom] = mem.split('+').map(x => x.trim());
+            if (ram) pushIfNew('mobile_rams', ram);
+            if (rom) pushIfNew('mobile_roms', rom);
+          } else if (mem) {
+            pushIfNew('mobile_roms', mem);
+          }
+        });
+      } else if (mod === 'laptop') {
+        splitDictTokens(rec['固态硬盘'], 'pause').forEach(v => pushIfNew('laptop_ssds', v));
+        splitDictTokens(rec['机械硬盘'], 'pause').forEach(v => pushIfNew('laptop_hdds', v));
+        splitDictTokens(rec['显卡型号'], 'pause').forEach(v => pushIfNew('laptop_gpus', v));
+        splitDictTokens(rec['处理器'], 'pause').forEach(v => pushIfNew('laptop_cpus', v));
+      } else if (mod === 'watch') {
+        splitDictTokens(rec['购买渠道'], 'space').forEach(v => pushIfNew('mobile_channels', v));
+        splitDictTokens(rec['手机颜色'], 'pause').forEach(v => pushIfNew('mobile_colors', v));
+        splitDictTokens(rec['表壳材质'], 'pause').forEach(v => pushIfNew('watch_materials', v));
+        splitDictTokens(rec['表壳尺寸'], 'pause').forEach(v => pushIfNew('watch_sizes', v));
+        splitDictTokens(rec['表带'], 'pause').forEach(v => pushIfNew('watch_straps', v));
+        splitDictTokens(rec['连接'], 'pause').forEach(v => pushIfNew('watch_connections', v));
+      }
+      return candidates;
+    }
+
+    async function autoLearnDictItems(mod, rec) {
+      const items = collectUnseenDictItems(mod, rec);
+      if (!items.length) return;
+      try {
+        const res = await fetch('/api/dict/learn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok' || !data.changed) return;
+
+        if (data.dict) {
+          dictData = data.dict;
+          refreshBrandDatalist();
+        } else {
+          await loadDictData();
+        }
+        // 若字典大盘弹窗正开着，顺带刷新
+        const dictModal = document.getElementById('dict-config-modal');
+        if (dictModal && !dictModal.classList.contains('hidden')) {
+          switchDictTab(currentDictTab || 'mobile');
+        }
+
+        const parts = [];
+        const added = Array.isArray(data.added) ? data.added : [];
+        const updated = Array.isArray(data.updated) ? data.updated : [];
+        if (added.length) {
+          const labels = added.slice(0, 3).map(a => a.category === 'brands' ? `${a.item_value}(${a.item_key})` : a.item_value);
+          parts.push(`记住新参数 ${labels.join('、')}${added.length > 3 ? ` 等${added.length}项` : ''}`);
+        }
+        if (updated.length) {
+          const uLabels = updated.slice(0, 2).map(u => `${u.item_value}(${u.item_key})`);
+          parts.push(`更新品牌编号 ${uLabels.join('、')}`);
+        }
+        if (parts.length && typeof FunSuite !== 'undefined' && FunSuite.showToast) {
+          FunSuite.showToast(`💡 已自动写入数据库：${parts.join('；')}`);
+        }
+      } catch (e) {
+        console.warn('自动学习新参数异常', e);
+      }
+    }
+
+    // ==========================================
+    // 内存配置智能数字联想弹出 (输入数字即弹出匹配方案)
+    // ==========================================
+    let memorySuggestList = [];
+    let memorySuggestActiveIdx = -1;
+    let memoryHideTimer = null;
+
+    function getMemoryPresets() {
+      const priority = [
+        '4G+64G', '4G+128G', '6G+128G', '6G+256G',
+        '8G+128G', '8G+256G', '8G+512G', '8G+1TB',
+        '12G+256G', '12G+512G', '12G+1TB',
+        '16G+256G', '16G+512G', '16G+1TB', '16G+2TB',
+        '24G+512G', '24G+1TB', '24G+2TB',
+        '32G+1TB', '32G+2TB'
+      ];
+      const baseRams = ['8G', '12G', '16G', '24G', '32G', '6G', '4G', '10G', '18G'];
+      const baseRoms = ['128G', '256G', '512G', '1TB', '2TB', '4TB', '64G'];
+      const extraRams = (dictData.mobile_rams || []).map(x => cleanMemoryString(x)).filter(Boolean);
+      const extraRoms = (dictData.mobile_roms || []).map(x => cleanMemoryString(x)).filter(Boolean);
+      const allRams = Array.from(new Set([...baseRams, ...extraRams]));
+      const allRoms = Array.from(new Set([...baseRoms, ...extraRoms]));
+
+      const result = new Set(priority);
+      allRams.forEach(ram => {
+        allRoms.forEach(rom => {
+          if (ram && rom) result.add(`${ram}+${rom}`);
+        });
+      });
+      return Array.from(result);
+    }
+
+    function _extractMemoryQuery(rawVal) {
+      const m = String(rawVal || '').match(/^([\s\S]*\s)?([^\s]*)$/);
+      return { prefix: m ? (m[1] || '') : '', token: m ? (m[2] || '') : '' };
+    }
+
+    function onAndroidMemoryInput(inputEl) {
+      if (memoryHideTimer) { clearTimeout(memoryHideTimer); memoryHideTimer = null; }
+      const { token } = _extractMemoryQuery(inputEl.value);
+      const q = token.trim().toLowerCase();
+      const box = document.getElementById('a-memory-suggest');
+      if (!box) return;
+
+      // 只要最后片段包含数字即弹出匹配方案
+      if (!q || !/\d/.test(q)) {
+        hideMemorySuggest();
+        return;
+      }
+
+      const qNoG = q.replace(/g/g, '');
+      const presets = getMemoryPresets();
+      const scored = [];
+
+      presets.forEach((item, orderIdx) => {
+        const low = item.toLowerCase();
+        const lowNoG = low.replace(/g/g, '');
+        const [ramPart = '', romPart = ''] = low.split('+');
+        const ramNoG = ramPart.replace(/g/g, '');
+        const romNoG = romPart.replace(/g/g, '');
+
+        let score = -1;
+        if (low === q || lowNoG === qNoG) score = 0;
+        else if (ramNoG.startsWith(qNoG) || ramPart.startsWith(q)) score = 1;
+        else if (romNoG.startsWith(qNoG) || romPart.startsWith(q)) score = 2;
+        else if (lowNoG.startsWith(qNoG) || low.startsWith(q)) score = 3;
+        else if (low.includes(q) || lowNoG.includes(qNoG)) score = 4;
+
+        if (score >= 0) {
+          scored.push({ item, score, orderIdx });
+        }
+      });
+
+      scored.sort((a, b) => a.score - b.score || a.orderIdx - b.orderIdx);
+      memorySuggestList = scored.slice(0, 18).map(s => s.item);
+      if (!memorySuggestList.length) {
+        hideMemorySuggest();
+        return;
+      }
+      memorySuggestActiveIdx = 0;
+      renderMemorySuggest(q);
+    }
+
+    function renderMemorySuggest(queryLower = '') {
+      const box = document.getElementById('a-memory-suggest');
+      if (!box) return;
+      box.innerHTML = `<div class="px-2.5 py-1 text-[10px] text-gray-400 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <span>匹配内存方案 (${memorySuggestList.length})</span>
+        <span>↑↓选择 · Enter填入</span>
+      </div>`;
+      memorySuggestList.forEach((item, idx) => {
+        const isActive = idx === memorySuggestActiveIdx;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition ${isActive ? 'bg-blue-50 text-blue-700 font-semibold dark:bg-blue-900/40 dark:text-blue-300' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/60'}`;
+        btn.innerHTML = `<span class="font-mono">${escapeHtml(item)}</span><span class="text-[10px] text-gray-400">${item.includes('TB') ? 'TB大存储' : '点击填入'}</span>`;
+        btn.onmousedown = (e) => {
+          e.preventDefault();
+          applyMemorySuggestion(item);
+        };
+        box.appendChild(btn);
+      });
+      box.classList.remove('hidden');
+      if (memorySuggestActiveIdx >= 0) {
+        const activeBtn = box.children[memorySuggestActiveIdx + 1];
+        if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+          activeBtn.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    }
+
+    function applyMemorySuggestion(item) {
+      const inputEl = document.getElementById('a-memory');
+      if (!inputEl) return;
+      const { prefix } = _extractMemoryQuery(inputEl.value);
+      inputEl.value = `${prefix}${item} `;
+      hideMemorySuggest();
+      inputEl.focus();
+    }
+
+    function onAndroidMemoryKeydown(e) {
+      const box = document.getElementById('a-memory-suggest');
+      if (!box || box.classList.contains('hidden') || !memorySuggestList.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        memorySuggestActiveIdx = (memorySuggestActiveIdx + 1) % memorySuggestList.length;
+        renderMemorySuggest();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        memorySuggestActiveIdx = (memorySuggestActiveIdx - 1 + memorySuggestList.length) % memorySuggestList.length;
+        renderMemorySuggest();
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (memorySuggestActiveIdx >= 0 && memorySuggestActiveIdx < memorySuggestList.length) {
+          e.preventDefault();
+          applyMemorySuggestion(memorySuggestList[memorySuggestActiveIdx]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideMemorySuggest();
+      }
+    }
+
+    function scheduleHideMemorySuggest() {
+      if (memoryHideTimer) clearTimeout(memoryHideTimer);
+      memoryHideTimer = setTimeout(() => hideMemorySuggest(), 150);
+    }
+
+    function hideMemorySuggest() {
+      const box = document.getElementById('a-memory-suggest');
+      if (box) box.classList.add('hidden');
+      memorySuggestActiveIdx = -1;
     }
 
     function appendAndroidMem(val) {
       const el = document.getElementById('a-memory');
       const cur = el.value.trim();
       el.value = cur ? `${cur} ${val}` : val;
+      hideMemorySuggest();
     }
     function appendAndroidColor(val) {
       const el = document.getElementById('a-color');
@@ -2096,9 +2392,10 @@
         document.getElementById('a-small-model').value = '';
         document.getElementById('a-memory').value = '';
         document.getElementById('a-color').value = '';
-        document.getElementById('a-on-price').value = '';
-        document.getElementById('a-off-price').value = '';
-        document.getElementById('a-min-price').value = '';
+        document.getElementById('a-on-price').value = '5';
+        document.getElementById('a-off-price').value = '5';
+        document.getElementById('a-min-price').value = '5';
+        hideMemorySuggest();
       } else if (currentModule === 'laptop') {
         document.getElementById('l-alias').value = '';
         document.getElementById('l-model-id').value = '';
@@ -2106,18 +2403,18 @@
         document.getElementById('l-hdd').value = '';
         document.getElementById('l-gpu').value = '';
         document.getElementById('l-cpu').value = '';
-        document.getElementById('l-on-price').value = '';
-        document.getElementById('l-off-price').value = '';
-        document.getElementById('l-min-price').value = '';
+        document.getElementById('l-on-price').value = '5';
+        document.getElementById('l-off-price').value = '5';
+        document.getElementById('l-min-price').value = '5';
       } else if (currentModule === 'watch') {
         document.getElementById('w-model-num').value = '';
         document.getElementById('w-model-name').value = '';
         document.getElementById('w-color').value = '';
         document.getElementById('w-material').value = '';
         document.getElementById('w-size').value = '';
-        document.getElementById('w-on-price').value = '';
-        document.getElementById('w-off-price').value = '';
-        document.getElementById('w-min-price').value = '';
+        document.getElementById('w-on-price').value = '5';
+        document.getElementById('w-off-price').value = '5';
+        document.getElementById('w-min-price').value = '5';
       }
     }
 
@@ -2244,13 +2541,7 @@
         modalAllItems = dictData.mobile_networks;
       } else if (type === 'memory') {
         titleEl.innerText = '💾 检索更多手机/平板内存方案 (RAM+ROM，单位TB)';
-        const mems = [];
-        ['8G', '12G', '16G', '24G', '32G', '6G', '4G'].forEach(ram => {
-          ['128G', '256G', '512G', '1TB', '2TB', '4TB', '64G'].forEach(rom => {
-            mems.push(`${ram}+${rom}`);
-          });
-        });
-        modalAllItems = mems;
+        modalAllItems = getMemoryPresets();
       } else if (type === 'cpu') {
         titleEl.innerText = '💻 模糊检索处理器 CPU';
         modalAllItems = dictData.laptop_cpus;
@@ -2336,17 +2627,14 @@
 
       if (modalCurrentType === 'brand') {
         const sel = arr[0];
-        const name = sel.split(' (')[0];
-        const bid = sel.split('(')[1]?.replace(')', '') || '';
-        if (currentModule === 'android') {
-          document.getElementById('a-brand-name').value = name;
-          document.getElementById('a-brand-id').value = bid;
-        } else if (currentModule === 'laptop') {
-          document.getElementById('l-brand-name').value = name;
-          document.getElementById('l-brand-id').value = bid;
-        } else if (currentModule === 'watch') {
-          document.getElementById('w-brand-name').value = name;
-          document.getElementById('w-brand-id').value = bid;
+        const lastIdx = sel.lastIndexOf(' (');
+        const name = lastIdx > -1 ? sel.slice(0, lastIdx) : sel;
+        const bid = lastIdx > -1 ? sel.slice(lastIdx + 2, -1) : '';
+        const { nameEl, idEl } = _getBrandEls(currentModule);
+        if (nameEl && idEl) {
+          nameEl.value = name;
+          nameEl.dataset.autoFromId = '0';
+          idEl.value = bid;
         }
       } else if (modalTargetInputId && document.getElementById(modalTargetInputId)) {
         const el = document.getElementById(modalTargetInputId);
