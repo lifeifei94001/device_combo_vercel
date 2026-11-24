@@ -609,14 +609,14 @@
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">表壳材质 (带字典检索)</label>
                   <div class="relative flex items-center">
-                    <input type="text" id="w-material" placeholder="纤维高强度聚合物" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <input type="text" id="w-material" oninput="syncWatchMatrixUI()" placeholder="纤维高强度聚合物" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('watch_material', 'w-material')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
                   </div>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">表壳尺寸 (带字典检索)</label>
                   <div class="relative flex items-center">
-                    <input type="text" id="w-size" placeholder="1.85寸" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <input type="text" id="w-size" oninput="syncWatchMatrixUI()" placeholder="1.85寸" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('watch_size', 'w-size')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
                   </div>
                 </div>
@@ -627,15 +627,64 @@
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">表带 (空格/顿号分隔 / 字典检索)</label>
                   <div class="relative flex items-center">
-                    <input type="text" id="w-strap" value="TPU表带 无表带" placeholder="TPU表带 无表带" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <input type="text" id="w-strap" value="TPU表带 无表带" oninput="syncWatchMatrixUI()" placeholder="TPU表带 无表带" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('watch_strap', 'w-strap')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
                   </div>
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-700 mb-1">连接方式 (带字典检索)</label>
                   <div class="relative flex items-center">
-                    <input type="text" id="w-connection" value="GPS" placeholder="GPS" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                    <input type="text" id="w-connection" value="GPS" oninput="syncWatchMatrixUI()" placeholder="GPS" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('watch_conn', 'w-connection')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold">🔍</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 智能手表四维快捷平铺点选面板 (连接/表带/材质/尺寸 一屏直选) -->
+              <div id="watch-dict-matrix-panel" class="space-y-2.5 pt-0.5">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
+                  <div class="lg:col-span-4 bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center space-x-1.5">
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">🔗 连接方式</span>
+                        <span id="w-conn-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">0</span>
+                      </div>
+                      <button type="button" onclick="clearWatchField('w-connection')" class="text-[11px] text-gray-400 hover:text-red-500 transition">清空</button>
+                    </div>
+                    <div id="watch-matrix-conn" class="flex flex-wrap gap-1.5"></div>
+                  </div>
+                  <div class="lg:col-span-8 bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center space-x-1.5">
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">⌚ 表带类型</span>
+                        <span id="w-strap-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">0</span>
+                      </div>
+                      <button type="button" onclick="clearWatchField('w-strap')" class="text-[11px] text-gray-400 hover:text-red-500 transition">清空</button>
+                    </div>
+                    <div id="watch-matrix-strap" class="flex flex-wrap gap-1.5"></div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                  <div class="bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center space-x-1.5">
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">🛡️ 表壳材质</span>
+                        <span id="w-material-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">0</span>
+                      </div>
+                      <button type="button" onclick="clearWatchField('w-material')" class="text-[11px] text-gray-400 hover:text-red-500 transition">清空</button>
+                    </div>
+                    <div id="watch-matrix-material" class="flex flex-wrap gap-1 max-h-40 overflow-y-auto pr-0.5"></div>
+                  </div>
+                  <div class="bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center space-x-1.5">
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">📏 表壳尺寸 (毫米 / 英寸)</span>
+                        <span id="w-size-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">0</span>
+                      </div>
+                      <button type="button" onclick="clearWatchField('w-size')" class="text-[11px] text-gray-400 hover:text-red-500 transition">清空</button>
+                    </div>
+                    <div id="watch-matrix-size" class="flex flex-wrap gap-1 max-h-40 overflow-y-auto pr-0.5"></div>
                   </div>
                 </div>
               </div>
@@ -1021,6 +1070,7 @@
         const res = await fetch('/api/dict/data');
         dictData = await res.json();
         refreshBrandDatalist();
+        renderWatchMatrix();
       } catch (e) { console.error('加载字典异常', e); }
     }
 
@@ -1111,6 +1161,7 @@
         document.getElementById('page-title').innerText = '智能手表机型基本信息排列组合';
         document.getElementById('page-subtitle').innerText = '表壳材质/尺寸/表带/连接/颜色/渠道 六维笛卡尔积组合 · 国行智能排序';
         fW.classList.remove('hidden');
+        renderWatchMatrix();
       }
       loadModuleRecords();
     }
@@ -1469,6 +1520,7 @@
         if (data.dict) {
           dictData = data.dict;
           refreshBrandDatalist();
+          renderWatchMatrix();
         } else {
           await loadDictData();
         }
@@ -1752,6 +1804,103 @@
       el.value = cur ? `${cur} ${val}` : val;
       hideMemorySuggest();
       syncMemoryMatrixUI();
+    }
+
+    // ==========================================
+    // 智能手表四维平铺快捷选择面板 (连接/表带/材质/尺寸)
+    // ==========================================
+    const WATCH_MATRIX_SPECS = [
+      { inputId: 'w-connection', containerId: 'watch-matrix-conn',     countId: 'w-conn-count',     dictKey: 'watch_connections', btnClass: 'watch-btn-conn' },
+      { inputId: 'w-strap',      containerId: 'watch-matrix-strap',    countId: 'w-strap-count',    dictKey: 'watch_straps',      btnClass: 'watch-btn-strap' },
+      { inputId: 'w-material',   containerId: 'watch-matrix-material', countId: 'w-material-count', dictKey: 'watch_materials',   btnClass: 'watch-btn-material' },
+      { inputId: 'w-size',       containerId: 'watch-matrix-size',     countId: 'w-size-count',     dictKey: 'watch_sizes',       btnClass: 'watch-btn-size', sortSize: true }
+    ];
+
+    function _sortWatchSizes(items) {
+      return items.slice().sort((a, b) => {
+        const getKey = (s) => {
+          const str = String(s || '').trim();
+          const numMatch = str.match(/(\d+(?:\.\d+)?)/);
+          const num = numMatch ? parseFloat(numMatch[1]) : 9999;
+          if (/毫米|mm/i.test(str)) return [0, num, str];
+          if (/寸/i.test(str)) return [1, num, str];
+          return [2, num, str];
+        };
+        const ka = getKey(a), kb = getKey(b);
+        return ka[0] - kb[0] || ka[1] - kb[1] || ka[2].localeCompare(kb[2]);
+      });
+    }
+
+    function renderWatchMatrix() {
+      WATCH_MATRIX_SPECS.forEach(spec => {
+        const container = document.getElementById(spec.containerId);
+        if (!container) return;
+        const rawList = Array.isArray(dictData[spec.dictKey]) ? dictData[spec.dictKey] : [];
+        const list = spec.sortSize ? _sortWatchSizes(rawList) : rawList;
+        container.innerHTML = '';
+        if (!list.length) {
+          container.innerHTML = '<span class="text-[11px] text-gray-400">字典加载中...</span>';
+          return;
+        }
+        list.forEach(val => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.val = val;
+          btn.onclick = () => toggleWatchMatrixValue(spec.inputId, val);
+          btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer select-none`;
+          btn.innerText = val;
+          container.appendChild(btn);
+        });
+      });
+      syncWatchMatrixUI();
+    }
+
+    function syncWatchMatrixUI() {
+      WATCH_MATRIX_SPECS.forEach(spec => {
+        const inputEl = document.getElementById(spec.inputId);
+        const tokens = inputEl ? splitDictTokens(inputEl.value, 'pause') : [];
+        const selectedSet = new Set(tokens.map(t => t.toLowerCase()));
+        document.querySelectorAll(`.${spec.btnClass}`).forEach(btn => {
+          const val = btn.dataset.val || '';
+          const isSel = selectedSet.has(val.toLowerCase());
+          if (isSel) {
+            btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer select-none bg-blue-600 text-white border-blue-600 shadow-sm font-semibold`;
+            btn.innerHTML = `✓ ${escapeHtml(val)}`;
+          } else {
+            btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer select-none bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50`;
+            btn.innerText = val;
+          }
+        });
+        const badge = document.getElementById(spec.countId);
+        if (badge) {
+          if (tokens.length > 0) {
+            badge.innerText = String(tokens.length);
+            badge.classList.remove('hidden');
+          } else {
+            badge.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    function toggleWatchMatrixValue(inputId, val) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const tokens = splitDictTokens(el.value, 'pause');
+      const idx = tokens.findIndex(t => t.toLowerCase() === val.toLowerCase());
+      if (idx >= 0) {
+        tokens.splice(idx, 1);
+      } else {
+        tokens.push(val);
+      }
+      el.value = tokens.join(' ');
+      syncWatchMatrixUI();
+    }
+
+    function clearWatchField(inputId) {
+      const el = document.getElementById(inputId);
+      if (el) el.value = '';
+      syncWatchMatrixUI();
     }
     function appendAndroidColor(val) {
       const el = document.getElementById('a-color');
@@ -2518,6 +2667,7 @@
         document.getElementById('w-on-price').value = '5';
         document.getElementById('w-off-price').value = '5';
         document.getElementById('w-min-price').value = '5';
+        syncWatchMatrixUI();
       }
     }
 
@@ -2822,6 +2972,8 @@
         el.value = arr.join(sep);
         if (modalTargetInputId === 'a-memory') {
           syncMemoryMatrixUI();
+        } else if (modalTargetInputId.startsWith('w-')) {
+          syncWatchMatrixUI();
         }
       }
       closeSearchModal();
