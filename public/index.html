@@ -431,37 +431,41 @@
 
               <!-- 内存、渠道、网络 -->
               <div class="grid grid-cols-12 gap-3 items-center">
-                <div id="a-memory-wrap" class="col-span-3 relative">
+                <div id="a-memory-wrap" class="col-span-5 relative">
                   <label class="block text-xs font-medium text-gray-700 mb-1">内存配置 (空格分隔 / 1TB单位)</label>
-                  <input type="text" id="a-memory" autocomplete="off" oninput="onAndroidMemoryInput(this)" onfocus="onAndroidMemoryInput(this)" onkeydown="onAndroidMemoryKeydown(event)" onblur="this.value = cleanMemoryString(this.value); scheduleHideMemorySuggest();" onchange="this.value = cleanMemoryString(this.value)" placeholder="如: 8G+128G 16G+1TB" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
+                  <input type="text" id="a-memory" autocomplete="off" oninput="onAndroidMemoryInput(this); syncMemoryMatrixUI();" onfocus="onAndroidMemoryInput(this)" onkeydown="onAndroidMemoryKeydown(event)" onblur="this.value = cleanMemoryString(this.value); syncMemoryMatrixUI(); scheduleHideMemorySuggest();" onchange="this.value = cleanMemoryString(this.value); syncMemoryMatrixUI();" placeholder="如: 8G+128G 16G+1TB（也可直接点下方全览矩阵）" class="w-full px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                   <div id="a-memory-suggest" class="hidden absolute left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-lg shadow-xl z-50 max-h-56 overflow-y-auto py-1"></div>
                 </div>
-                <div class="col-span-3">
+                <div class="col-span-4">
                   <label class="block text-xs font-medium text-gray-700 mb-1">购买渠道 (可检索/默认国行)</label>
                   <div class="relative flex items-center">
                     <input type="text" id="a-channel" value="国行 其他版本" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('channel', 'a-channel')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索购买渠道">🔍</button>
                   </div>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-3">
                   <label class="block text-xs font-medium text-gray-700 mb-1">网络制式 (可检索/默认全网通)</label>
                   <div class="relative flex items-center">
                     <input type="text" id="a-network" value="全网通" class="w-full pl-2.5 pr-8 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg">
                     <button onclick="openSearchModal('network', 'a-network')" class="absolute right-2 text-gray-400 hover:text-blue-600 text-xs font-bold" title="检索网络制式">🔍</button>
                   </div>
                 </div>
-                <div class="col-span-4">
-                  <label class="block text-xs font-medium text-gray-700 mb-1">快速内存方案 (单位TB)</label>
-                  <div class="flex flex-wrap gap-1">
-                    <button onclick="appendAndroidMem('8G+128G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">8G+128G</button>
-                    <button onclick="appendAndroidMem('8G+256G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">8G+256G</button>
-                    <button onclick="appendAndroidMem('12G+256G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">12G+256G</button>
-                    <button onclick="appendAndroidMem('12G+512G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">12G+512G</button>
-                    <button onclick="appendAndroidMem('16G+512G')" class="pill-btn px-1.5 py-0.5 text-[11px] bg-gray-50 border border-gray-200 rounded">16G+512G</button>
-                    <button onclick="appendAndroidMem('16G+1TB')" class="pill-btn px-1.5 py-0.5 text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded">16G+1TB</button>
-                    <button onclick="openSearchModal('memory', 'a-memory')" class="pill-btn px-1.5 py-0.5 text-[11px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 rounded">... 更多内存</button>
+              </div>
+
+              <!-- 快速内存组合全览矩阵面板 (一屏直观展示，点击勾选/取消) -->
+              <div id="android-memory-matrix-panel" class="bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">⚡ 快速内存组合全览</span>
+                    <span class="text-[11px] text-gray-400">点击即勾选 / 再点取消 · 单位TB</span>
+                    <span id="a-memory-selected-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">已选 0 项</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button type="button" onclick="clearAndroidMemory()" class="text-[11px] text-gray-500 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">清空内存</button>
+                    <button type="button" onclick="openSearchModal('memory', 'a-memory')" class="pill-btn px-2 py-0.5 text-[11px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 rounded">... 更多冷门组合</button>
                   </div>
                 </div>
+                <div id="android-memory-matrix-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-1.5"></div>
               </div>
 
               <!-- 手机颜色 -->
@@ -723,7 +727,7 @@
 
   <!-- ==================== 1. 极速模糊检索弹窗 (0延迟流畅替换) ==================== -->
   <div id="search-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+    <div id="search-modal-card" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
       <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
         <h3 id="modal-title" class="font-bold text-gray-800 text-sm">🔍 字典模糊检索</h3>
         <button onclick="closeSearchModal()" class="text-gray-400 hover:text-gray-600 text-base">✕</button>
@@ -954,6 +958,7 @@
 
     window.onload = async () => {
       startLiveClock();
+      renderMemoryMatrix();
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
       document.getElementById('a-release-time').value = today;
       document.getElementById('l-release-time').value = today;
@@ -1609,6 +1614,7 @@
       const { prefix } = _extractMemoryQuery(inputEl.value);
       inputEl.value = `${prefix}${item} `;
       hideMemorySuggest();
+      syncMemoryMatrixUI();
       inputEl.focus();
     }
 
@@ -1645,11 +1651,107 @@
       memorySuggestActiveIdx = -1;
     }
 
+    // 快速内存组合全览矩阵配置（双列 6 组平衡排布，常见组合一屏尽览）
+    const MEMORY_MATRIX_GROUPS = [
+      { label: '4G / 6G', items: ['4G+64G', '4G+128G', '6G+128G', '6G+256G'] },
+      { label: '16G',     items: ['16G+256G', '16G+512G', '16G+1TB', '16G+2TB'] },
+      { label: '8G',      items: ['8G+128G', '8G+256G', '8G+512G', '8G+1TB'] },
+      { label: '24G',     items: ['24G+512G', '24G+1TB', '24G+2TB'] },
+      { label: '12G',     items: ['12G+128G', '12G+256G', '12G+512G', '12G+1TB'] },
+      { label: '32G',     items: ['32G+512G', '32G+1TB', '32G+2TB'] }
+    ];
+
+    function _parseAndroidMemoryTokens() {
+      const el = document.getElementById('a-memory');
+      if (!el) return [];
+      const cleaned = cleanMemoryString(el.value);
+      return cleaned ? cleaned.split(/\s+/).filter(Boolean) : [];
+    }
+
+    function renderMemoryMatrix() {
+      const grid = document.getElementById('android-memory-matrix-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      MEMORY_MATRIX_GROUPS.forEach(group => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 py-0.5';
+
+        const badge = document.createElement('span');
+        badge.className = 'w-12 shrink-0 text-[11px] font-bold font-mono text-gray-500 dark:text-gray-400 text-right pr-1 select-none';
+        badge.innerText = group.label;
+        row.appendChild(badge);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-wrap gap-1.5';
+        group.items.forEach(mem => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.mem = mem;
+          btn.onclick = () => toggleAndroidMem(mem);
+          btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border transition cursor-pointer select-none';
+          btn.innerText = mem;
+          wrap.appendChild(btn);
+        });
+        row.appendChild(wrap);
+        grid.appendChild(row);
+      });
+      syncMemoryMatrixUI();
+    }
+
+    function syncMemoryMatrixUI() {
+      const tokens = _parseAndroidMemoryTokens();
+      const selectedSet = new Set(tokens.map(t => t.toUpperCase()));
+      document.querySelectorAll('.mem-matrix-btn').forEach(btn => {
+        const mem = btn.dataset.mem || '';
+        const isSel = selectedSet.has(mem.toUpperCase());
+        if (isSel) {
+          btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border transition cursor-pointer select-none bg-blue-600 text-white border-blue-600 shadow-sm font-semibold';
+          btn.innerHTML = `✓ ${escapeHtml(mem)}`;
+        } else {
+          btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border transition cursor-pointer select-none bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50';
+          btn.innerText = mem;
+        }
+      });
+      const countBadge = document.getElementById('a-memory-selected-count');
+      if (countBadge) {
+        if (tokens.length > 0) {
+          countBadge.innerText = `已选 ${tokens.length} 项`;
+          countBadge.classList.remove('hidden');
+        } else {
+          countBadge.classList.add('hidden');
+        }
+      }
+    }
+
+    function toggleAndroidMem(val) {
+      const el = document.getElementById('a-memory');
+      if (!el) return;
+      const targetUpper = val.toUpperCase();
+      const tokens = _parseAndroidMemoryTokens();
+      const existsIdx = tokens.findIndex(t => t.toUpperCase() === targetUpper);
+      if (existsIdx >= 0) {
+        tokens.splice(existsIdx, 1);
+      } else {
+        tokens.push(val);
+      }
+      el.value = tokens.join(' ');
+      hideMemorySuggest();
+      syncMemoryMatrixUI();
+    }
+
+    function clearAndroidMemory() {
+      const el = document.getElementById('a-memory');
+      if (el) el.value = '';
+      hideMemorySuggest();
+      syncMemoryMatrixUI();
+    }
+
     function appendAndroidMem(val) {
       const el = document.getElementById('a-memory');
       const cur = el.value.trim();
       el.value = cur ? `${cur} ${val}` : val;
       hideMemorySuggest();
+      syncMemoryMatrixUI();
     }
     function appendAndroidColor(val) {
       const el = document.getElementById('a-color');
@@ -2396,6 +2498,7 @@
         document.getElementById('a-off-price').value = '5';
         document.getElementById('a-min-price').value = '5';
         hideMemorySuggest();
+        syncMemoryMatrixUI();
       } else if (currentModule === 'laptop') {
         document.getElementById('l-alias').value = '';
         document.getElementById('l-model-id').value = '';
@@ -2523,9 +2626,20 @@
       modalTargetInputId = targetInputId;
       modalSelectedItems.clear();
       const modal = document.getElementById('search-modal');
+      const card = document.getElementById('search-modal-card');
       const titleEl = document.getElementById('modal-title');
       const inputEl = document.getElementById('modal-search-input');
       inputEl.value = '';
+
+      if (card) {
+        if (type === 'memory') {
+          card.classList.remove('max-w-lg');
+          card.classList.add('max-w-2xl');
+        } else {
+          card.classList.remove('max-w-2xl');
+          card.classList.add('max-w-lg');
+        }
+      }
 
       if (type === 'brand') {
         titleEl.innerText = '🔍 模糊检索品牌';
@@ -2540,8 +2654,12 @@
         titleEl.innerText = '📶 模糊检索网络制式';
         modalAllItems = dictData.mobile_networks;
       } else if (type === 'memory') {
-        titleEl.innerText = '💾 检索更多手机/平板内存方案 (RAM+ROM，单位TB)';
+        titleEl.innerText = '💾 全部手机/平板内存组合全览 (按运存分组，单位TB)';
         modalAllItems = getMemoryPresets();
+        // 自动预选输入框中已有的内存组合
+        if (targetInputId === 'a-memory') {
+          _parseAndroidMemoryTokens().forEach(tok => modalSelectedItems.add(tok));
+        }
       } else if (type === 'cpu') {
         titleEl.innerText = '💻 模糊检索处理器 CPU';
         modalAllItems = dictData.laptop_cpus;
@@ -2578,11 +2696,20 @@
     }
 
     function filterModalItems(q) {
-      const filtered = q.trim() ? modalAllItems.filter(it => it.toLowerCase().includes(q.trim().toLowerCase())) : modalAllItems;
+      const trimmed = q.trim().toLowerCase();
+      if (!trimmed) {
+        renderModalItems(modalAllItems);
+        return;
+      }
+      const noG = trimmed.replace(/g/g, '');
+      const filtered = modalAllItems.filter(it => {
+        const low = it.toLowerCase();
+        return low.includes(trimmed) || (modalCurrentType === 'memory' && low.replace(/g/g, '').includes(noG));
+      });
       renderModalItems(filtered);
     }
 
-    // 0 延迟局部元素切换渲染 (修复第2项)
+    // 0 延迟局部元素切换渲染 (内存采用按运存分组的矩阵视图，一眼看清全部组合)
     function renderModalItems(items) {
       const container = document.getElementById('modal-items-container');
       container.innerHTML = '';
@@ -2590,6 +2717,58 @@
         container.innerHTML = '<div class="text-center py-6 text-xs text-gray-400">无匹配结果</div>';
         return;
       }
+
+      if (modalCurrentType === 'memory') {
+        const groups = new Map();
+        items.forEach(it => {
+          const ram = it.includes('+') ? it.split('+')[0] : '其他';
+          if (!groups.has(ram)) groups.set(ram, []);
+          groups.get(ram).push(it);
+        });
+        const sortedRams = Array.from(groups.keys()).sort((a, b) => {
+          const na = parseFloat(a) || 9999;
+          const nb = parseFloat(b) || 9999;
+          return na - nb;
+        });
+
+        sortedRams.forEach(ram => {
+          const row = document.createElement('div');
+          row.className = 'flex items-start space-x-2.5 px-2.5 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700';
+
+          const label = document.createElement('span');
+          label.className = 'w-11 shrink-0 pt-1 text-xs font-bold font-mono text-blue-600 dark:text-blue-400 text-right';
+          label.innerText = ram;
+          row.appendChild(label);
+
+          const grid = document.createElement('div');
+          grid.className = 'flex flex-wrap gap-1.5 flex-1';
+          groups.get(ram).forEach(it => {
+            const isSel = modalSelectedItems.has(it);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `px-2.5 py-1 text-xs font-mono rounded-md border transition cursor-pointer ${isSel ? 'bg-blue-600 text-white border-blue-600 font-semibold shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/60'}`;
+            btn.innerText = isSel ? `✓ ${it}` : it;
+            btn.onclick = () => {
+              if (modalSelectedItems.has(it)) {
+                modalSelectedItems.delete(it);
+                btn.className = 'px-2.5 py-1 text-xs font-mono rounded-md border transition cursor-pointer bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/60';
+                btn.innerText = it;
+              } else {
+                modalSelectedItems.add(it);
+                btn.className = 'px-2.5 py-1 text-xs font-mono rounded-md border transition cursor-pointer bg-blue-600 text-white border-blue-600 font-semibold shadow-sm';
+                btn.innerText = `✓ ${it}`;
+              }
+              document.getElementById('modal-selected-badge').innerText = `已选: ${modalSelectedItems.size} 项 (确定后将直接替换原有内容)`;
+            };
+            grid.appendChild(btn);
+          });
+          row.appendChild(grid);
+          container.appendChild(row);
+        });
+        document.getElementById('modal-selected-badge').innerText = `已选: ${modalSelectedItems.size} 项 (确定后将直接替换原有内容)`;
+        return;
+      }
+
       items.slice(0, 100).forEach(it => {
         const isSel = modalSelectedItems.has(it);
         const div = document.createElement('div');
@@ -2620,7 +2799,7 @@
     // 确认填入 -> 修复第3项: 100% 替换原有内容，清空原旧数据
     function confirmModalSelection() {
       const arr = Array.from(modalSelectedItems);
-      if (!arr.length) {
+      if (!arr.length && modalCurrentType !== 'memory') {
         closeSearchModal();
         return;
       }
@@ -2641,6 +2820,9 @@
         const sep = (modalCurrentType === 'color' && currentModule === 'android') || modalCurrentType === 'cpu' || modalCurrentType === 'gpu' || modalCurrentType === 'ssd' || modalCurrentType === 'hdd' ? '、' : ' ';
         // 直接替换（自然覆盖原有内容）
         el.value = arr.join(sep);
+        if (modalTargetInputId === 'a-memory') {
+          syncMemoryMatrixUI();
+        }
       }
       closeSearchModal();
     }
