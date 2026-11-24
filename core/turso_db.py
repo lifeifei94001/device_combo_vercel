@@ -322,6 +322,7 @@ class TursoDualStore:
         "mobile_channels",
         "mobile_rams",
         "mobile_roms",
+        "mobile_memory_combos",
         "laptop_ssds",
         "laptop_hdds",
         "laptop_cpus",
@@ -331,6 +332,15 @@ class TursoDualStore:
         "watch_connections",
         "watch_straps",
         "watch_networks",
+    )
+
+    _DEFAULT_MEMORY_COMBOS = (
+        "4G+64G", "4G+128G", "6G+128G", "6G+256G",
+        "8G+128G", "8G+256G", "8G+512G", "8G+1TB",
+        "12G+128G", "12G+256G", "12G+512G", "12G+1TB",
+        "16G+256G", "16G+512G", "16G+1TB", "16G+2TB",
+        "24G+512G", "24G+1TB", "24G+2TB",
+        "32G+512G", "32G+1TB", "32G+2TB",
     )
 
     def __init__(self) -> None:
@@ -383,6 +393,31 @@ class TursoDualStore:
             cnt_rows = self._backend.query("SELECT count(*) FROM dict_items")
             cnt = int(cnt_rows[0][0]) if cnt_rows else 0
             if cnt > 0:
+                mem_flag_rows = self._backend.query(
+                    "SELECT setting_value FROM app_settings WHERE setting_key = 'seeded_memory_combos'"
+                )
+                if not mem_flag_rows or str(mem_flag_rows[0][0]) != "1":
+                    ts_mem = now_str()
+                    mem_cnt_rows = self._backend.query(
+                        "SELECT count(*) FROM dict_items WHERE category = 'mobile_memory_combos'"
+                    )
+                    mem_cnt = int(mem_cnt_rows[0][0]) if mem_cnt_rows else 0
+                    mem_stmts: List[Tuple[str, Sequence[Any]]] = []
+                    if mem_cnt == 0:
+                        placeholders = ", ".join(["(?, ?, ?, ?, ?)"] * len(self._DEFAULT_MEMORY_COMBOS))
+                        flat_args: List[Any] = []
+                        for idx, val in enumerate(self._DEFAULT_MEMORY_COMBOS):
+                            flat_args.extend(["mobile_memory_combos", "", val, idx, ts_mem])
+                        mem_stmts.append((
+                            "INSERT OR IGNORE INTO dict_items (category, item_key, item_value, sort_order, created_at) "
+                            f"VALUES {placeholders}",
+                            flat_args,
+                        ))
+                    mem_stmts.append((
+                        "INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
+                        ("seeded_memory_combos", "1", ts_mem),
+                    ))
+                    self._backend.execute_tx(mem_stmts)
                 self._dict_seeded = True
                 return cnt
 
@@ -409,6 +444,7 @@ class TursoDualStore:
                 ("mobile_channels", BUILTIN_MOBILE.get("购买渠道", [])),
                 ("mobile_rams", BUILTIN_MOBILE.get("RAM", [])),
                 ("mobile_roms", BUILTIN_MOBILE.get("ROM", [])),
+                ("mobile_memory_combos", list(self._DEFAULT_MEMORY_COMBOS)),
                 ("laptop_ssds", BUILTIN_LAPTOP.get("固态硬盘", [])),
                 ("laptop_hdds", BUILTIN_LAPTOP.get("机械硬盘", [])),
                 ("laptop_cpus", BUILTIN_LAPTOP.get("处理器", [])),
@@ -443,6 +479,10 @@ class TursoDualStore:
             for batch_start in range(0, len(stmts), 15):
                 self._backend.execute_tx(stmts[batch_start : batch_start + 15])
 
+            self._backend.execute_tx([(
+                "INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
+                ("seeded_memory_combos", "1", ts),
+            )])
             self._dict_seeded = True
             return len(all_rows)
 
@@ -623,6 +663,43 @@ class TursoDualStore:
         ))
         self._backend.execute_tx(stmts)
         return {"added": added, "updated": updated, "changed": True}
+
+    def delete_dict_item(self, category: str, item_value: str) -> Dict[str, Any]:
+        """从数据库删除指定字典参数（支持品牌与全维度字典）"""
+        cat = str(category or "").strip()
+        val = str(item_value or "").strip()
+        if cat not in self._DICT_CATEGORIES:
+            raise ValueError(f"不支持的字典分类: {cat}")
+        if not val:
+            raise ValueError("待删除的字典值不能为空")
+
+        self.ensure_dict_seeded()
+        ts = now_str()
+        rows = self._backend.query(
+            "SELECT id, item_value FROM dict_items WHERE category = ? AND LOWER(item_value) = LOWER(?)",
+            (cat, val),
+        )
+        if not rows:
+            return {"category": cat, "item_value": val, "deleted": False}
+
+        ids = [int(r[0]) for r in rows]
+        placeholders = ", ".join(["?"] * len(ids))
+        stmts: List[Tuple[str, Sequence[Any]]] = [
+            (f"DELETE FROM dict_items WHERE id IN ({placeholders})", ids),
+            (
+                "INSERT INTO operation_logs (module, action, record_count, output_count, detail, created_at) "
+                "VALUES ('dict', 'delete', ?, 0, ?, ?)",
+                (len(ids), f"删除字典项 [{cat}]: {val}", ts),
+            ),
+        ]
+        # 若删除了预置内存组合，确保已标记 seeded_memory_combos=1 防止重新复活
+        if cat == "mobile_memory_combos":
+            stmts.append((
+                "INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
+                ("seeded_memory_combos", "1", ts),
+            ))
+        self._backend.execute_tx(stmts)
+        return {"category": cat, "item_value": str(rows[0][1]), "deleted": True}
 
     def get_all_settings(self) -> Dict[str, Any]:
         """获取所有全局偏好配置（跨浏览器/跨设备云端同步）"""

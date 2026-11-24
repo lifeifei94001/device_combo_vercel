@@ -461,6 +461,7 @@
                     <span id="a-memory-selected-count" class="hidden px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded-full">已选 0 项</span>
                   </div>
                   <div class="flex items-center space-x-2">
+                    <button type="button" id="btn-toggle-mem-delete" onclick="toggleMemoryDeleteMode()" class="text-[11px] text-gray-500 hover:text-red-600 px-1.5 py-0.5 rounded border border-transparent hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 transition">🗑️ 删减</button>
                     <button type="button" onclick="clearAndroidMemory()" class="text-[11px] text-gray-500 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">清空内存</button>
                     <button type="button" onclick="openSearchModal('memory', 'a-memory')" class="pill-btn px-2 py-0.5 text-[11px] font-semibold text-purple-600 bg-purple-50 border border-purple-200 rounded">... 更多冷门组合</button>
                   </div>
@@ -642,6 +643,10 @@
 
               <!-- 智能手表四维快捷平铺点选面板 (连接/表带/材质/尺寸 一屏直选) -->
               <div id="watch-dict-matrix-panel" class="space-y-2.5 pt-0.5">
+                <div class="flex items-center justify-between px-1">
+                  <span class="text-[11px] text-gray-400">✨ 点击标签即勾选/取消（新输入的参数点「生成组合列表」将自动记住到以下面板）</span>
+                  <button type="button" id="btn-toggle-watch-delete" onclick="toggleWatchDeleteMode()" class="text-[11px] text-gray-500 hover:text-red-600 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition">🗑️ 删减数据库选项</button>
+                </div>
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5">
                   <div class="lg:col-span-4 bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 rounded-xl p-2.5">
                     <div class="flex items-center justify-between mb-1.5">
@@ -880,26 +885,35 @@
         <button id="dict-tab-brand" onclick="switchDictTab('brand')" class="pb-2.5 border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center"><i class="fa-solid fa-tags mr-1.5"></i>品牌 ID 字典</button>
       </div>
 
-      <!-- 在线新增字典项表单 -->
-      <div class="px-5 py-2.5 border-b border-gray-100 bg-purple-50/40 flex flex-wrap items-center gap-2 text-xs">
-        <span class="font-semibold text-purple-700"><i class="fa-solid fa-plus-circle mr-1"></i>在线补充字典：</span>
-        <select id="dict-add-category" onchange="toggleDictAddKeyField()" class="px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
-          <option value="mobile_colors">手机&平板 · 机型颜色</option>
-          <option value="mobile_channels">手机&平板 · 购买渠道</option>
-          <option value="mobile_networks">手机&平板 · 网络制式</option>
-          <option value="laptop_ssds">笔记本 · 固态硬盘</option>
-          <option value="laptop_hdds">笔记本 · 机械硬盘</option>
-          <option value="laptop_cpus">笔记本 · 处理器 CPU</option>
-          <option value="laptop_gpus">笔记本 · 显卡 GPU</option>
-          <option value="watch_materials">手表 · 表壳材质</option>
-          <option value="watch_sizes">手表 · 表壳尺寸</option>
-          <option value="watch_straps">手表 · 表带类型</option>
-          <option value="watch_connections">手表 · 连接方式</option>
-          <option value="brands">品牌与 ID 对照</option>
-        </select>
-        <input type="text" id="dict-add-key" placeholder="品牌ID (如 201)" class="hidden w-28 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-mono">
-        <input type="text" id="dict-add-value" placeholder="输入新增参数名称..." class="flex-1 min-w-[160px] px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
-        <button onclick="addDictItemFromModal()" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition">写入数据库</button>
+      <!-- 在线新增与筛选字典项表单 -->
+      <div class="px-5 py-2.5 border-b border-gray-100 bg-purple-50/40 space-y-2 text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-semibold text-purple-700"><i class="fa-solid fa-plus-circle mr-1"></i>在线补充字典：</span>
+          <select id="dict-add-category" onchange="toggleDictAddKeyField()" class="px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
+            <option value="mobile_memory_combos">手机&平板 · 内存组合</option>
+            <option value="mobile_colors">手机&平板 · 机型颜色</option>
+            <option value="mobile_channels">手机&平板 · 购买渠道</option>
+            <option value="mobile_networks">手机&平板 · 网络制式</option>
+            <option value="laptop_ssds">笔记本 · 固态硬盘</option>
+            <option value="laptop_hdds">笔记本 · 机械硬盘</option>
+            <option value="laptop_cpus">笔记本 · 处理器 CPU</option>
+            <option value="laptop_gpus">笔记本 · 显卡 GPU</option>
+            <option value="watch_materials">手表 · 表壳材质</option>
+            <option value="watch_sizes">手表 · 表壳尺寸</option>
+            <option value="watch_straps">手表 · 表带类型</option>
+            <option value="watch_connections">手表 · 连接方式</option>
+            <option value="brands">品牌与 ID 对照</option>
+          </select>
+          <input type="text" id="dict-add-key" placeholder="品牌ID (如 201)" class="hidden w-28 px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs font-mono">
+          <input type="text" id="dict-add-value" placeholder="输入新增参数名称..." class="flex-1 min-w-[160px] px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs">
+          <button onclick="addDictItemFromModal()" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition">写入数据库</button>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="relative flex-1">
+            <input type="text" id="dict-modal-search" oninput="switchDictTab(currentDictTab || 'mobile')" placeholder="🔍 搜索过滤当前分类字段（支持输入颜色、材质、型号、品牌名，点击标签右侧 × 可直接从数据库删除）..." class="w-full pl-3 pr-3 py-1 bg-white border border-gray-200 rounded-md text-xs">
+          </div>
+          <span class="text-[11px] text-gray-500 whitespace-nowrap">点击标签 <b class="text-red-500">×</b> 从数据库删除</span>
+        </div>
       </div>
 
       <!-- 字典内容展示容器 -->
@@ -991,7 +1005,8 @@
         .replace(/'/g, '&#039;');
     }
 
-    let dictData = { brands: [], mobile_colors: [], mobile_networks: [], mobile_channels: [], mobile_rams: [], mobile_roms: [], laptop_ssds: [], laptop_hdds: [], laptop_cpus: [], laptop_gpus: [], watch_materials: [], watch_sizes: [], watch_connections: [], watch_straps: [], watch_networks: [] };
+    let dictData = { brands: [], mobile_colors: [], mobile_networks: [], mobile_channels: [], mobile_rams: [], mobile_roms: [], mobile_memory_combos: [], laptop_ssds: [], laptop_hdds: [], laptop_cpus: [], laptop_gpus: [], watch_materials: [], watch_sizes: [], watch_connections: [], watch_straps: [], watch_networks: [] };
+    let dictLoadedFromServer = false;
     let currentRecords = [];
     let modalCurrentType = '';
     let modalTargetInputId = '';
@@ -1069,7 +1084,9 @@
       try {
         const res = await fetch('/api/dict/data');
         dictData = await res.json();
+        dictLoadedFromServer = true;
         refreshBrandDatalist();
+        renderMemoryMatrix();
         renderWatchMatrix();
       } catch (e) { console.error('加载字典异常', e); }
     }
@@ -1481,6 +1498,7 @@
         splitDictTokens(rec['购买渠道'], 'space').forEach(ch => pushIfNew('mobile_channels', ch));
         splitDictTokens(rec['网络制式'], 'space').forEach(net => pushIfNew('mobile_networks', net));
         splitDictTokens(rec['内存'], 'space').forEach(mem => {
+          pushIfNew('mobile_memory_combos', mem);
           if (mem.includes('+')) {
             const [ram, rom] = mem.split('+').map(x => x.trim());
             if (ram) pushIfNew('mobile_rams', ram);
@@ -1519,7 +1537,9 @@
 
         if (data.dict) {
           dictData = data.dict;
+          dictLoadedFromServer = true;
           refreshBrandDatalist();
+          renderMemoryMatrix();
           renderWatchMatrix();
         } else {
           await loadDictData();
@@ -1556,15 +1576,17 @@
     let memorySuggestActiveIdx = -1;
     let memoryHideTimer = null;
 
+    const DEFAULT_MEMORY_COMBOS = [
+      '4G+64G', '4G+128G', '6G+128G', '6G+256G',
+      '8G+128G', '8G+256G', '8G+512G', '8G+1TB',
+      '12G+128G', '12G+256G', '12G+512G', '12G+1TB',
+      '16G+256G', '16G+512G', '16G+1TB', '16G+2TB',
+      '24G+512G', '24G+1TB', '24G+2TB',
+      '32G+512G', '32G+1TB', '32G+2TB'
+    ];
+
     function getMemoryPresets() {
-      const priority = [
-        '4G+64G', '4G+128G', '6G+128G', '6G+256G',
-        '8G+128G', '8G+256G', '8G+512G', '8G+1TB',
-        '12G+256G', '12G+512G', '12G+1TB',
-        '16G+256G', '16G+512G', '16G+1TB', '16G+2TB',
-        '24G+512G', '24G+1TB', '24G+2TB',
-        '32G+1TB', '32G+2TB'
-      ];
+      const dbCombos = Array.isArray(dictData.mobile_memory_combos) ? dictData.mobile_memory_combos : [];
       const baseRams = ['8G', '12G', '16G', '24G', '32G', '6G', '4G', '10G', '18G'];
       const baseRoms = ['128G', '256G', '512G', '1TB', '2TB', '4TB', '64G'];
       const extraRams = (dictData.mobile_rams || []).map(x => cleanMemoryString(x)).filter(Boolean);
@@ -1572,7 +1594,8 @@
       const allRams = Array.from(new Set([...baseRams, ...extraRams]));
       const allRoms = Array.from(new Set([...baseRoms, ...extraRoms]));
 
-      const result = new Set(priority);
+      const seedList = dictLoadedFromServer ? dbCombos : (dbCombos.length ? dbCombos : DEFAULT_MEMORY_COMBOS);
+      const result = new Set(seedList);
       allRams.forEach(ram => {
         allRoms.forEach(rom => {
           if (ram && rom) result.add(`${ram}+${rom}`);
@@ -1703,15 +1726,125 @@
       memorySuggestActiveIdx = -1;
     }
 
-    // 快速内存组合全览矩阵配置（双列 6 组平衡排布，常见组合一屏尽览）
-    const MEMORY_MATRIX_GROUPS = [
-      { label: '4G / 6G', items: ['4G+64G', '4G+128G', '6G+128G', '6G+256G'] },
-      { label: '16G',     items: ['16G+256G', '16G+512G', '16G+1TB', '16G+2TB'] },
-      { label: '8G',      items: ['8G+128G', '8G+256G', '8G+512G', '8G+1TB'] },
-      { label: '24G',     items: ['24G+512G', '24G+1TB', '24G+2TB'] },
-      { label: '12G',     items: ['12G+128G', '12G+256G', '12G+512G', '12G+1TB'] },
-      { label: '32G',     items: ['32G+512G', '32G+1TB', '32G+2TB'] }
-    ];
+    let memoryMatrixDeleteMode = false;
+    let watchMatrixDeleteMode = false;
+
+    function _parseMemSizeGb(str) {
+      const s = String(str || '').trim().toUpperCase();
+      const m = s.match(/(\d+(?:\.\d+)?)\s*(TB|T|GB|G)?/);
+      if (!m || !m[1]) return 999999;
+      const n = parseFloat(m[1]);
+      return (m[2] && m[2].startsWith('T')) ? n * 1024 : n;
+    }
+
+    function _buildDynamicMemoryGroups() {
+      const dbList = Array.isArray(dictData.mobile_memory_combos) ? dictData.mobile_memory_combos : [];
+      const list = dictLoadedFromServer ? dbList : (dbList.length ? dbList : DEFAULT_MEMORY_COMBOS);
+      const ramBuckets = new Map();
+      list.forEach(mem => {
+        const clean = cleanMemoryString(mem) || String(mem || '').trim();
+        if (!clean) return;
+        const ram = clean.includes('+') ? clean.split('+')[0].trim() : '其他';
+        if (!ramBuckets.has(ram)) ramBuckets.set(ram, []);
+        ramBuckets.get(ram).push(clean);
+      });
+
+      // 默认 4G 与 6G 若合计不超过 5 项则合并一行保持双列平衡，超过则各自独立成行
+      const small4 = ramBuckets.get('4G') || [];
+      const small6 = ramBuckets.get('6G') || [];
+      const groups = [];
+      if (small4.length && small6.length && (small4.length + small6.length) <= 5) {
+        groups.push({ label: '4G / 6G', sortGb: 4, items: [...small4, ...small6] });
+        ramBuckets.delete('4G');
+        ramBuckets.delete('6G');
+      }
+
+      Array.from(ramBuckets.entries()).forEach(([ram, items]) => {
+        const sortedItems = items.slice().sort((a, b) => {
+          const romA = a.includes('+') ? a.split('+')[1] : a;
+          const romB = b.includes('+') ? b.split('+')[1] : b;
+          return _parseMemSizeGb(romA) - _parseMemSizeGb(romB);
+        });
+        groups.push({
+          label: ram,
+          sortGb: ram === '其他' ? 999999 : _parseMemSizeGb(ram),
+          items: sortedItems
+        });
+      });
+
+      groups.sort((a, b) => a.sortGb - b.sortGb);
+      // 尽量按「左半升序、右半升序」交错排布双列，视觉对齐更工整
+      const half = Math.ceil(groups.length / 2);
+      const balanced = [];
+      for (let i = 0; i < half; i++) {
+        balanced.push(groups[i]);
+        if (i + half < groups.length) balanced.push(groups[i + half]);
+      }
+      return balanced;
+    }
+
+    function toggleMemoryDeleteMode() {
+      memoryMatrixDeleteMode = !memoryMatrixDeleteMode;
+      const btn = document.getElementById('btn-toggle-mem-delete');
+      if (btn) {
+        if (memoryMatrixDeleteMode) {
+          btn.className = 'text-[11px] bg-red-600 text-white font-semibold px-2 py-0.5 rounded shadow-sm transition';
+          btn.innerText = '✓ 完成删减';
+        } else {
+          btn.className = 'text-[11px] text-gray-500 hover:text-red-600 px-1.5 py-0.5 rounded border border-transparent hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 transition';
+          btn.innerText = '🗑️ 删减';
+        }
+      }
+      renderMemoryMatrix();
+    }
+
+    function toggleWatchDeleteMode() {
+      watchMatrixDeleteMode = !watchMatrixDeleteMode;
+      const btn = document.getElementById('btn-toggle-watch-delete');
+      if (btn) {
+        if (watchMatrixDeleteMode) {
+          btn.className = 'text-[11px] bg-red-600 text-white font-semibold px-2 py-0.5 rounded shadow-sm transition';
+          btn.innerText = '✓ 完成删减';
+        } else {
+          btn.className = 'text-[11px] text-gray-500 hover:text-red-600 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition';
+          btn.innerText = '🗑️ 删减数据库选项';
+        }
+      }
+      renderWatchMatrix();
+    }
+
+    async function deleteDictItemEverywhere(category, itemValue) {
+      const val = String(itemValue || '').trim();
+      if (!category || !val) return;
+      try {
+        const res = await fetch('/api/dict/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, item_value: val })
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') {
+          alert(`删除失败: ${data.msg || '未知错误'}`);
+          return;
+        }
+        if (data.dict) {
+          dictData = data.dict;
+          dictLoadedFromServer = true;
+        }
+        refreshBrandDatalist();
+        renderMemoryMatrix();
+        renderWatchMatrix();
+        const dictModal = document.getElementById('dict-config-modal');
+        if (dictModal && !dictModal.classList.contains('hidden')) {
+          switchDictTab(currentDictTab || 'mobile');
+        }
+        if (typeof FunSuite !== 'undefined' && FunSuite.showToast) {
+          FunSuite.showToast(`🗑️ 已从数据库删除「${val}」`);
+        }
+      } catch (e) {
+        alert(`删除字典项异常: ${e}`);
+      }
+    }
 
     function _parseAndroidMemoryTokens() {
       const el = document.getElementById('a-memory');
@@ -1724,7 +1857,13 @@
       const grid = document.getElementById('android-memory-matrix-grid');
       if (!grid) return;
       grid.innerHTML = '';
-      MEMORY_MATRIX_GROUPS.forEach(group => {
+      const groups = _buildDynamicMemoryGroups();
+      if (!groups.length) {
+        grid.innerHTML = '<div class="col-span-2 text-center py-2 text-xs text-gray-400">暂无预设内存组合，直接在上方输入框录入并点击「生成组合列表」即可自动记住到此处</div>';
+        syncMemoryMatrixUI();
+        return;
+      }
+      groups.forEach(group => {
         const row = document.createElement('div');
         row.className = 'flex items-center space-x-2 py-0.5';
 
@@ -1739,7 +1878,13 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.dataset.mem = mem;
-          btn.onclick = () => toggleAndroidMem(mem);
+          btn.onclick = () => {
+            if (memoryMatrixDeleteMode) {
+              deleteDictItemEverywhere('mobile_memory_combos', mem);
+            } else {
+              toggleAndroidMem(mem);
+            }
+          };
           btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border transition cursor-pointer select-none';
           btn.innerText = mem;
           wrap.appendChild(btn);
@@ -1755,6 +1900,11 @@
       const selectedSet = new Set(tokens.map(t => t.toUpperCase()));
       document.querySelectorAll('.mem-matrix-btn').forEach(btn => {
         const mem = btn.dataset.mem || '';
+        if (memoryMatrixDeleteMode) {
+          btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border border-dashed border-red-300 bg-red-50/70 text-red-600 hover:bg-red-600 hover:text-white transition cursor-pointer select-none';
+          btn.innerHTML = `${escapeHtml(mem)} <span class="font-bold">×</span>`;
+          return;
+        }
         const isSel = selectedSet.has(mem.toUpperCase());
         if (isSel) {
           btn.className = 'mem-matrix-btn px-2 py-0.5 text-[11px] font-mono rounded-md border transition cursor-pointer select-none bg-blue-600 text-white border-blue-600 shadow-sm font-semibold';
@@ -1846,7 +1996,13 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.dataset.val = val;
-          btn.onclick = () => toggleWatchMatrixValue(spec.inputId, val);
+          btn.onclick = () => {
+            if (watchMatrixDeleteMode) {
+              deleteDictItemEverywhere(spec.dictKey, val);
+            } else {
+              toggleWatchMatrixValue(spec.inputId, val);
+            }
+          };
           btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer select-none`;
           btn.innerText = val;
           container.appendChild(btn);
@@ -1862,6 +2018,11 @@
         const selectedSet = new Set(tokens.map(t => t.toLowerCase()));
         document.querySelectorAll(`.${spec.btnClass}`).forEach(btn => {
           const val = btn.dataset.val || '';
+          if (watchMatrixDeleteMode) {
+            btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border border-dashed border-red-300 bg-red-50/70 text-red-600 hover:bg-red-600 hover:text-white transition cursor-pointer select-none`;
+            btn.innerHTML = `${escapeHtml(val)} <span class="font-bold">×</span>`;
+            return;
+          }
           const isSel = selectedSet.has(val.toLowerCase());
           if (isSel) {
             btn.className = `${spec.btnClass} px-2 py-0.5 text-[11px] rounded-md border transition cursor-pointer select-none bg-blue-600 text-white border-blue-600 shadow-sm font-semibold`;
@@ -2984,6 +3145,8 @@
     // 全维度字典配置大盘展示
     function openDictConfigModal() {
       document.getElementById('dict-config-modal').classList.remove('hidden');
+      const searchEl = document.getElementById('dict-modal-search');
+      if (searchEl) searchEl.value = '';
       toggleDictAddKeyField();
       switchDictTab(currentDictTab || 'mobile');
     }
@@ -3030,6 +3193,31 @@
         alert(`写入字典异常: ${e}`);
       }
     }
+
+    function handleDictTagDelete(btnEl) {
+      if (!btnEl || !btnEl.dataset) return;
+      const cat = btnEl.dataset.cat || '';
+      const val = btnEl.dataset.val || '';
+      if (cat && val) deleteDictItemEverywhere(cat, val);
+    }
+
+    function _renderDictTagsHtml(cat, list, badgeCls, limit = 150) {
+      const q = (document.getElementById('dict-modal-search')?.value || '').trim().toLowerCase();
+      const raw = Array.isArray(list) ? list : [];
+      const filtered = q ? raw.filter(v => String(v || '').toLowerCase().includes(q)) : raw;
+      const sliced = filtered.slice(0, limit);
+      if (!sliced.length) {
+        return `<span class="text-[11px] text-gray-400 px-1 py-1">${q ? '无匹配项' : '暂无数据'}</span>`;
+      }
+      return sliced.map(v => {
+        const safe = escapeHtml(v);
+        return `<span class="inline-flex items-center space-x-1 px-2 py-0.5 text-[11px] rounded ${badgeCls}">
+          <span>${safe}</span>
+          <button type="button" data-cat="${escapeHtml(cat)}" data-val="${safe}" onclick="handleDictTagDelete(this)" class="ml-0.5 text-gray-400 hover:text-red-600 font-bold leading-none cursor-pointer" title="从数据库删除">×</button>
+        </span>`;
+      }).join('') + (filtered.length > limit ? `<span class="text-[10px] text-gray-400 px-1.5 py-0.5">... 还有 ${filtered.length - limit} 项，请用上方搜索框过滤</span>` : '');
+    }
+
     function switchDictTab(tab) {
       currentDictTab = tab;
       ['mobile', 'laptop', 'watch', 'brand'].forEach(t => {
@@ -3045,17 +3233,24 @@
       container.innerHTML = '';
 
       if (tab === 'mobile') {
+        const memCombos = Array.isArray(dictData.mobile_memory_combos) ? dictData.mobile_memory_combos : [];
         container.innerHTML = `
           <div class="grid grid-cols-2 gap-4">
-            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>📱 手机&平板机型颜色 (${dictData.mobile_colors.length} 种)</span></div>
-              <div class="flex flex-wrap gap-1 max-h-48 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.mobile_colors.slice(0, 100).map(c => `<span class="px-2 py-0.5 text-[11px] bg-gray-100 text-gray-700 rounded">${c}</span>`).join('')}</div>
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-3">
+              <div>
+                <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>⚡ 常用内存组合 (${memCombos.length} 项)</span></div>
+                <div class="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('mobile_memory_combos', memCombos, 'bg-indigo-50 text-indigo-700 font-mono', 200)}</div>
+              </div>
+              <div>
+                <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>📱 手机&平板机型颜色 (${dictData.mobile_colors.length} 种)</span></div>
+                <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('mobile_colors', dictData.mobile_colors, 'bg-gray-100 text-gray-700', 120)}</div>
+              </div>
             </div>
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div class="font-bold text-xs text-gray-700 mb-2 flex justify-between"><span>🛒 购买渠道 (${dictData.mobile_channels.length} 种)</span></div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.mobile_channels.map(ch => `<span class="px-2 py-1 text-xs bg-blue-50 text-blue-700 font-medium rounded">${ch}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('mobile_channels', dictData.mobile_channels, 'bg-blue-50 text-blue-700 font-medium', 100)}</div>
               <div class="font-bold text-xs text-gray-700 mt-4 mb-2 flex justify-between"><span>📶 网络制式 (${dictData.mobile_networks.length} 种)</span></div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.mobile_networks.map(n => `<span class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 font-medium rounded">${n}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('mobile_networks', dictData.mobile_networks, 'bg-emerald-50 text-emerald-700 font-medium', 100)}</div>
             </div>
           </div>
         `;
@@ -3064,15 +3259,15 @@
           <div class="grid grid-cols-2 gap-4">
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div class="font-bold text-xs text-gray-700 mb-2">💾 固态硬盘 (${dictData.laptop_ssds.length} 种)</div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${dictData.laptop_ssds.map(s => `<span class="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">${s}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${_renderDictTagsHtml('laptop_ssds', dictData.laptop_ssds, 'bg-blue-50 text-blue-700', 120)}</div>
               <div class="font-bold text-xs text-gray-700 mb-2">💿 机械硬盘 (${dictData.laptop_hdds.length} 种)</div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.laptop_hdds.slice(0, 15).map(h => `<span class="px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded">${h}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('laptop_hdds', dictData.laptop_hdds, 'bg-amber-50 text-amber-700', 120)}</div>
             </div>
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div class="font-bold text-xs text-gray-700 mb-2">💻 处理器 CPU (${dictData.laptop_cpus.length} 款)</div>
-              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${dictData.laptop_cpus.slice(0, 50).map(cp => `<span class="px-1.5 py-0.5 text-[11px] bg-purple-50 text-purple-700 rounded">${cp}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${_renderDictTagsHtml('laptop_cpus', dictData.laptop_cpus, 'bg-purple-50 text-purple-700', 120)}</div>
               <div class="font-bold text-xs text-gray-700 mb-2">🎮 显卡 GPU (${dictData.laptop_gpus.length} 款)</div>
-              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.laptop_gpus.slice(0, 50).map(gp => `<span class="px-1.5 py-0.5 text-[11px] bg-indigo-50 text-indigo-700 rounded">${gp}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('laptop_gpus', dictData.laptop_gpus, 'bg-indigo-50 text-indigo-700', 120)}</div>
             </div>
           </div>
         `;
@@ -3081,23 +3276,34 @@
           <div class="grid grid-cols-2 gap-4">
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表壳材质 (${dictData.watch_materials.length} 种)</div>
-              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${dictData.watch_materials.map(m => `<span class="px-2 py-0.5 text-[11px] bg-amber-50 text-amber-700 rounded">${m}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100 mb-3">${_renderDictTagsHtml('watch_materials', dictData.watch_materials, 'bg-amber-50 text-amber-700', 200)}</div>
               <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表壳尺寸 (${dictData.watch_sizes.length} 种)</div>
-              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.watch_sizes.map(sz => `<span class="px-2 py-0.5 text-[11px] bg-blue-50 text-blue-700 rounded">${sz}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('watch_sizes', dictData.watch_sizes, 'bg-blue-50 text-blue-700', 200)}</div>
             </div>
             <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div class="font-bold text-xs text-gray-700 mb-2">⌚ 表带类型 (${dictData.watch_straps.length} 种)</div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${dictData.watch_straps.map(st => `<span class="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded">${st}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100 mb-3">${_renderDictTagsHtml('watch_straps', dictData.watch_straps, 'bg-emerald-50 text-emerald-700', 100)}</div>
               <div class="font-bold text-xs text-gray-700 mb-2">⌚ 连接方式 (${dictData.watch_connections.length} 种)</div>
-              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${dictData.watch_connections.map(cn => `<span class="px-2 py-1 text-xs bg-purple-50 text-purple-700 rounded">${cn}</span>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 p-1 bg-white rounded border border-gray-100">${_renderDictTagsHtml('watch_connections', dictData.watch_connections, 'bg-purple-50 text-purple-700', 100)}</div>
             </div>
           </div>
         `;
       } else if (tab === 'brand') {
+        const q = (document.getElementById('dict-modal-search')?.value || '').trim().toLowerCase();
+        const brands = (dictData.brands || []).filter(b => !q || String(b.name || '').toLowerCase().includes(q) || String(b.id || '').toLowerCase().includes(q));
         container.innerHTML = `
           <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <div class="font-bold text-xs text-gray-700 mb-2">🏷️ 品牌与 ID 全量对照表 (${dictData.brands.length} 个品牌)</div>
-            <div class="grid grid-cols-4 gap-2 max-h-72 overflow-y-auto p-1 bg-white rounded border border-gray-100">${dictData.brands.map(b => `<div class="px-2.5 py-1 text-xs bg-gray-50 border border-gray-100 rounded flex justify-between"><span class="font-bold text-gray-800">${b.name}</span><span class="text-blue-600 font-mono">ID:${b.id}</span></div>`).join('')}</div>
+            <div class="font-bold text-xs text-gray-700 mb-2">🏷️ 品牌与 ID 全量对照表 (${brands.length} 个品牌)</div>
+            <div class="grid grid-cols-4 gap-2 max-h-72 overflow-y-auto p-1 bg-white rounded border border-gray-100">${brands.map(b => {
+              const safeName = escapeHtml(b.name);
+              return `<div class="px-2.5 py-1 text-xs bg-gray-50 border border-gray-100 rounded flex items-center justify-between gap-1">
+                <span class="font-bold text-gray-800 truncate">${safeName}</span>
+                <div class="flex items-center space-x-1 shrink-0">
+                  <span class="text-blue-600 font-mono text-[11px]">ID:${escapeHtml(b.id)}</span>
+                  <button type="button" data-cat="brands" data-val="${safeName}" onclick="handleDictTagDelete(this)" class="text-gray-400 hover:text-red-600 font-bold leading-none cursor-pointer" title="删除该品牌">×</button>
+                </div>
+              </div>`;
+            }).join('')}</div>
           </div>
         `;
       }

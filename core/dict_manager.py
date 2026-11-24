@@ -24,6 +24,7 @@ class DictManager:
         self.mobile_channels: List[str] = []
         self.mobile_rams: List[str] = []
         self.mobile_roms: List[str] = []
+        self.mobile_memory_combos: List[str] = []
 
         # 笔记本 参数字典
         self.laptop_ssds: List[str] = []
@@ -49,6 +50,7 @@ class DictManager:
         self.mobile_channels = []
         self.mobile_rams = []
         self.mobile_roms = []
+        self.mobile_memory_combos = []
         self.laptop_ssds = []
         self.laptop_hdds = []
         self.laptop_cpus = []
@@ -78,6 +80,7 @@ class DictManager:
         self.mobile_channels = list(dict.fromkeys(self.mobile_channels))
         self.mobile_rams = list(dict.fromkeys(self.mobile_rams))
         self.mobile_roms = list(dict.fromkeys(self.mobile_roms))
+        self.mobile_memory_combos = list(dict.fromkeys(self.mobile_memory_combos))
         self.laptop_ssds = list(dict.fromkeys(self.laptop_ssds))
         self.laptop_hdds = list(dict.fromkeys(self.laptop_hdds))
         self.laptop_cpus = list(dict.fromkeys(self.laptop_cpus))
@@ -98,6 +101,14 @@ class DictManager:
         self.mobile_channels.extend(BUILTIN_MOBILE.get("购买渠道", []))
         self.mobile_rams.extend(BUILTIN_MOBILE.get("RAM", []))
         self.mobile_roms.extend(BUILTIN_MOBILE.get("ROM", []))
+        self.mobile_memory_combos.extend([
+            "4G+64G", "4G+128G", "6G+128G", "6G+256G",
+            "8G+128G", "8G+256G", "8G+512G", "8G+1TB",
+            "12G+128G", "12G+256G", "12G+512G", "12G+1TB",
+            "16G+256G", "16G+512G", "16G+1TB", "16G+2TB",
+            "24G+512G", "24G+1TB", "24G+2TB",
+            "32G+512G", "32G+1TB", "32G+2TB",
+        ])
 
         self.laptop_ssds.extend(BUILTIN_LAPTOP.get("固态硬盘", []))
         self.laptop_hdds.extend(BUILTIN_LAPTOP.get("机械硬盘", []))
@@ -129,6 +140,7 @@ class DictManager:
                     self.mobile_channels.extend(db_data.get("mobile_channels", []))
                     self.mobile_rams.extend(db_data.get("mobile_rams", []))
                     self.mobile_roms.extend(db_data.get("mobile_roms", []))
+                    self.mobile_memory_combos.extend(db_data.get("mobile_memory_combos", []))
                     self.laptop_ssds.extend(db_data.get("laptop_ssds", []))
                     self.laptop_hdds.extend(db_data.get("laptop_hdds", []))
                     self.laptop_cpus.extend(db_data.get("laptop_cpus", []))
@@ -155,6 +167,7 @@ class DictManager:
             "mobile_channels": self.mobile_channels,
             "mobile_rams": self.mobile_rams,
             "mobile_roms": self.mobile_roms,
+            "mobile_memory_combos": self.mobile_memory_combos,
             "laptop_ssds": self.laptop_ssds,
             "laptop_hdds": self.laptop_hdds,
             "laptop_cpus": self.laptop_cpus,
