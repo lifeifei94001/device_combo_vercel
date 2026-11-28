@@ -723,8 +723,8 @@
                   <input type="file" id="file-upload" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileUpload(event)">
                 </label>
 
-                <button onclick="generateAndExport()" class="w-full py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
-                  <i class="fa-solid fa-share-nodes mr-2"></i>排列组合并导出
+                <button id="btn-generate-export" onclick="generateAndExport()" class="w-full py-2.5 px-3 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition">
+                  <i class="fa-solid fa-share-nodes mr-2"></i><span id="btn-generate-export-text">排列组合并导出</span>
                 </button>
               </div>
             </div>
@@ -1180,6 +1180,7 @@
         fW.classList.remove('hidden');
         renderWatchMatrix();
       }
+      renderTable();
       loadModuleRecords();
     }
 
@@ -1322,6 +1323,7 @@
             </td>
           </tr>
         `;
+        syncTableSelectionUI();
         return;
       }
 
@@ -1333,7 +1335,7 @@
 
         if (currentModule === 'android') {
           tr.innerHTML = `
-            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}" onchange="syncTableSelectionUI()"></td>
             <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
             <td class="p-3 font-mono">${escapeHtml(rec['品牌编号'] || '-')}</td>
             <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
@@ -1349,7 +1351,7 @@
           `;
         } else if (currentModule === 'laptop') {
           tr.innerHTML = `
-            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}" onchange="syncTableSelectionUI()"></td>
             <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
             <td class="p-3 font-mono">${escapeHtml(rec['品牌ID'] || '-')}</td>
             <td class="p-3 font-medium text-gray-900">${escapeHtml(rec['品牌名称'] || '-')}</td>
@@ -1365,7 +1367,7 @@
           `;
         } else if (currentModule === 'watch') {
           tr.innerHTML = `
-            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}"></td>
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${idx}" onchange="syncTableSelectionUI()"></td>
             <td class="p-3 font-semibold text-gray-400">${idx + 1}</td>
             <td class="p-3 font-mono">${escapeHtml(rec['机型编号'] || '-')}</td>
             <td class="p-3 font-mono">${escapeHtml(rec['品牌ID'] || '-')}</td>
@@ -1383,6 +1385,7 @@
         }
         tbody.appendChild(tr);
       });
+      syncTableSelectionUI();
     }
 
     function handleAddRecord() {
@@ -2738,8 +2741,7 @@
     }
 
     function deleteSelectedRows() {
-      const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-      const indices = Array.from(checkboxes).map(c => parseInt(c.getAttribute('data-index'))).sort((a, b) => b - a);
+      const indices = getSelectedRowIndices(true);
       if (!indices.length) { alert('请先勾选需要删除的行！'); return; }
 
       const doDeleteSelected = () => {
@@ -2832,8 +2834,56 @@
       }
     }
 
+    /** 获取待处理机型表格中已勾选的有效下标列表 */
+    function getSelectedRowIndices(descending = false) {
+      const checkboxes = document.querySelectorAll('#table-body .row-checkbox:checked');
+      const indices = Array.from(checkboxes)
+        .map(c => parseInt(c.getAttribute('data-index'), 10))
+        .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < currentRecords.length);
+      return descending ? indices.sort((a, b) => b - a) : indices.sort((a, b) => a - b);
+    }
+
+    /** 同步行高亮、表头全选/半选状态与右上角导出按钮实时条数提示 */
+    function syncTableSelectionUI() {
+      const allCheckboxes = document.querySelectorAll('#table-body .row-checkbox');
+      let checkedCount = 0;
+      allCheckboxes.forEach(cb => {
+        const isChecked = !!cb.checked;
+        if (isChecked) checkedCount++;
+        const tr = cb.closest('tr');
+        if (tr) {
+          tr.classList.toggle('bg-blue-50/70', isChecked);
+          tr.classList.toggle('dark:bg-blue-900/20', isChecked);
+        }
+      });
+
+      const master = document.getElementById('check-all');
+      if (master) {
+        const totalBoxes = allCheckboxes.length;
+        master.disabled = totalBoxes === 0;
+        master.checked = totalBoxes > 0 && checkedCount === totalBoxes;
+        master.indeterminate = checkedCount > 0 && checkedCount < totalBoxes;
+      }
+
+      const btnText = document.getElementById('btn-generate-export-text');
+      const btn = document.getElementById('btn-generate-export');
+      if (btnText) {
+        if (!currentRecords.length) {
+          btnText.innerText = '排列组合并导出';
+          if (btn) btn.title = '待处理机型列表为空，请先录入或导入机型数据';
+        } else if (checkedCount > 0) {
+          btnText.innerText = `排列组合并导出 (已选 ${checkedCount} 条)`;
+          if (btn) btn.title = `将仅对当前勾选的 ${checkedCount} 条机型执行排列组合并导出 CSV`;
+        } else {
+          btnText.innerText = `排列组合并导出 (全部 ${currentRecords.length} 条)`;
+          if (btn) btn.title = `当前未勾选行，将对全部 ${currentRecords.length} 条机型执行排列组合并导出 CSV`;
+        }
+      }
+    }
+
     function toggleSelectAll(master) {
-      document.querySelectorAll('.row-checkbox').forEach(c => c.checked = master.checked);
+      document.querySelectorAll('#table-body .row-checkbox').forEach(c => c.checked = master.checked);
+      syncTableSelectionUI();
     }
 
     // 模版中心逻辑 (修复第4项)
@@ -2886,20 +2936,30 @@
     }
 
     async function generateAndExport() {
-      if (currentModule === 'android') {
-        currentRecords.forEach(r => {
-          if (r['内存']) r['内存'] = cleanMemoryString(r['内存']);
-        });
-      }
       if (!currentRecords.length) {
         alert('待处理机型列表为空，请先录入或导入机型数据！');
         return;
       }
+
+      const selectedIndices = getSelectedRowIndices(false);
+      // 优先仅导出已勾选行；未勾选任何行时默认兜底导出全部列表
+      const targetRecords = selectedIndices.length
+        ? selectedIndices.map(idx => currentRecords[idx])
+        : currentRecords;
+
+      // 构造提交副本，仅对本次导出目标做内存标准化清洗，保持原列表与勾选状态不变
+      const payloadRecords = targetRecords.map(rec => {
+        if (currentModule === 'android' && rec['内存']) {
+          return { ...rec, '内存': cleanMemoryString(rec['内存']) };
+        }
+        return rec;
+      });
+
       try {
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ module: currentModule, records: currentRecords })
+          body: JSON.stringify({ module: currentModule, records: payloadRecords })
         });
         const data = await res.json();
         if (data.status === 'ok') {
